@@ -1,0 +1,70 @@
+"""
+This script will gather all reference parameters for consistent plotting
+"""
+
+
+phangs_obs_cov_plot_kwargs_dict = {
+    'hst':
+        {
+            'F275W': {'color': 'deepskyblue',
+                      'line_width': 7,
+                      'line_style': '-'},
+            'F336W': {'color': 'dodgerblue',
+                      'line_width': 5,
+                      'line_style': '-'},
+            'F435W': {'color': 'blue',
+                      'line_width': 3,
+                      'line_style': '-'},
+            'F438W': {'color': 'blue',
+                      'line_width': 3,
+                      'line_style': '-'},
+            'F555W': {'color': 'blueviolet',
+                      'line_width': 3,
+                      'line_style': '--'},
+            'F657N': {'color': 'magenta',
+                      'line_width': 3,
+                      'line_style': '-'},
+            'F658N': {'color': 'magenta',
+                      'line_width': 3,
+                      'line_style': '-'},
+            'F814W': {'color': 'violet',
+                      'line_width': 2,
+                      'line_style': ':'},
+        },
+    'nircam':
+        {
+            'F200W': {'color': 'deeppink',
+                      'line_width': 7,
+                      'line_style': '-'},
+            'F300M': {'color': 'crimson',
+                      'line_width': 5,
+                      'line_style': '-'},
+            'F335M': {'color': 'red',
+                      'line_width': 3,
+                      'line_style': '--'},
+            'F360M': {'color': 'orangered',
+                      'line_width': 3,
+                      'line_style': ':'},
+        },
+    'miri':
+        {
+            'F770W': {'color': 'lime',
+                      'line_width': 7,
+                      'line_style': '-'},
+            'F1000W': {'color': 'springgreen',
+                       'line_width': 5,
+                      'line_style': '-'},
+            'F1130W': {'color': 'turquoise',
+                       'line_width': 3,
+                      'line_style': '--'},
+            'F2100W': {'color': 'cyan',
+                       'line_width': 3,
+                      'line_style': ':'},
+        },
+    'astrosat': {'color': 'peru', 'line_width': 6,
+                      'line_style': '-'},
+    'alma': {'color': 'orange', 'line_width': 6,
+                      'line_style': '-'},
+    'muse': {'color': 'yellow', 'line_width': 6,
+                      'line_style': '-'},
+}
