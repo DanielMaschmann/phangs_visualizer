@@ -147,7 +147,7 @@ holistic_viewer1_param_dic = {
 
     # alma
     'alma_res': 150,
-    'alma_alpha_co_method': 'S20_MUSEGPR',
+    'alma_alpha_co_method': 'B13_scaling',
     'alma_cbar_left_align': 0.92,
     'alma_cbar_bottom_align': 0.75,
     'alma_cbar_width': 0.02,
@@ -192,22 +192,25 @@ holistic_viewer1_param_dic = {
     'sed_height': 0.15,
     'sed_left_align': 0.035,
     'sed_bottom_align': 0.20,
-    'sed_size': (20, 20),
-    'hst_broad_band_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
-    'hst_broad_band_annulus_rad_in_pix': 13,
-    'hst_broad_band_annulus_rad_out_pix': 15,
+    'sed_size_hst': (4, 4),
+    'sed_size_nircam': (6, 6),
+    'sed_size_miri': (7, 7),
 
-    'hst_ha_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
-    'hst_ha_annulus_rad_in_pix': 13,
-    'hst_ha_annulus_rad_out_pix': 15,
-
-    'nircam_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
-    'nircam_annulus_rad_in_pix': 13,
-    'nircam_annulus_rad_out_pix': 15,
-
-    'miri_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
-    'miri_annulus_rad_in_pix': 13,
-    'miri_annulus_rad_out_pix': 15,
+    # 'hst_broad_band_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
+    # 'hst_broad_band_annulus_rad_in_pix': 13,
+    # 'hst_broad_band_annulus_rad_out_pix': 15,
+    #
+    # 'hst_ha_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
+    # 'hst_ha_annulus_rad_in_pix': 13,
+    # 'hst_ha_annulus_rad_out_pix': 15,
+    #
+    # 'nircam_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
+    # 'nircam_annulus_rad_in_pix': 13,
+    # 'nircam_annulus_rad_out_pix': 15,
+    #
+    # 'miri_ap_rad_pix_list': [1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12],
+    # 'miri_annulus_rad_in_pix': 13,
+    # 'miri_annulus_rad_out_pix': 15,
 
     'muse_spec_width': 0.80,
     'muse_spec_height': 0.16,
@@ -491,7 +494,7 @@ ism_phot_viewer_param_dict = {
 
 }
 
-muse_spec_viwer_param_dict = {
+muse_spec_viewer_param_dict = {
     # Figure and axis parameters
     'fig_size': (45, 30),
 
@@ -590,6 +593,114 @@ muse_spec_viwer_param_dict = {
     'em_title_font_size': 35,
     'em_label_size': 30,
 
+}
 
+
+fit_spec_viewer_param_dict = {
+    # Figure and axis parameters
+    'fig_size': (45, 30),
+
+
+    'muse_spec_width': 0.80,
+    'muse_spec_height': 0.25,
+    'muse_spec_left_align': 0.035,
+    'muse_spec_bottom_align': 0.05,
+
+
+
+    'hb_oiii_width': 0.40,
+    'hb_oiii_height': 0.25,
+    'hb_oiii_left_align': 0.035,
+    'hb_oiii_bottom_align': 0.73,
+
+    'hb_oiii_res_width': 0.40,
+    'hb_oiii_res_height': 0.05,
+    'hb_oiii_res_left_align': 0.035,
+    'hb_oiii_res_bottom_align': 0.675,
+
+    'hb_oiii_left_lim_offst': 15,
+    'hb_oiii_right_lim_offst': 15,
+
+
+    'ha_nii_width': 0.40,
+    'ha_nii_height': 0.25,
+    'ha_nii_left_align': 0.48,
+    'ha_nii_bottom_align': 0.73,
+
+    'ha_nii_res_width': 0.40,
+    'ha_nii_res_height': 0.05,
+    'ha_nii_res_left_align': 0.48,
+    'ha_nii_res_bottom_align': 0.675,
+
+    'ha_nii_left_lim_offst': 15,
+    'ha_nii_right_lim_offst': 15,
+
+
+
+    'sii_width': 0.25,
+    'sii_height': 0.25,
+    'sii_left_align': 0.035,
+    'sii_bottom_align': 0.4,
+
+    'sii_res_width': 0.25,
+    'sii_res_height': 0.05,
+    'sii_res_left_align': 0.035,
+    'sii_res_bottom_align': 0.345,
+
+    'sii_left_lim_offst': 15,
+    'sii_right_lim_offst': 15,
+
+
+
+    'red_bump_width': 0.20,
+    'red_bump_height': 0.25,
+    'red_bump_left_align': 0.46,
+    'red_bump_bottom_align': 0.73,
+
+    'red_bump_left_lim_offst': 15,
+    'red_bump_right_lim_offst': 15,
+
+    'oi6302_width': 0.20,
+    'oi6302_height': 0.25,
+    'oi6302_left_align': 0.685,
+    'oi6302_bottom_align': 0.73,
+
+    'oi6302_res_width': 0.20,
+    'oi6302_res_height': 0.05,
+    'oi6302_res_left_align': 0.685,
+    'oi6302_res_bottom_align': 0.675,
+
+    'oi6302_left_lim_offst': 15,
+    'oi6302_right_lim_offst': 15,
+
+    'hei6680_width': 0.20,
+    'hei6680_height': 0.25,
+    'hei6680_left_align': 0.46,
+    'hei6680_bottom_align': 0.4,
+
+    'hei6680_left_lim_offst': 15,
+    'hei6680_right_lim_offst': 15,
+
+
+    # 'muse_spec_x_lim': ('min', 7100),
+    'muse_spec_x_lim': ('min', 'max'),
+    'muse_spec_y_lim': 'cont',
+
+
+    'muse_ha_zoom_in_width': 0.12,
+    'muse_ha_zoom_in_height': 0.12,
+    'muse_ha_zoom_in_left_align': 0.81,
+    'muse_ha_zoom_in_bottom_align': 0.21,
+
+    'muse_ha_zoom_in_size': (2.5, 2.5),
+    'muse_ha_zoom_in_res': 'copt',
+    'muse_ha_zoom_in_ssp_model': 'fiducial',
+    'muse_ha_zoom_in_map_typ': 'HA6562_FLUX',
+    'muse_scale_bar_length_1': 1,
+    'muse_scale_bar_length_2': 30,
+    'muse_spec_title_font_size': 35,
+    'muse_spec_label_size': 30,
+    'em_title_font_size': 35,
+    'em_label_size': 30,
 
 }

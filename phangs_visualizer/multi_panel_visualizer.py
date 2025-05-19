@@ -5,6 +5,8 @@ Tool to visualize PHANGS products with different analysis
 from phangs_visualizer import plotting_tools
 from phangs_visualizer.phot_visualizer import PhotVisualizer
 from phangs_visualizer import plot_params
+from phangs_data_access import spec_tools, phangs_info
+
 
 class MultiPanelVisualizer:
     """
@@ -12,7 +14,8 @@ class MultiPanelVisualizer:
     """
     @staticmethod
     def phangs_holistic_viewer1(ra, dec, target_name=None, phot_visual_access=None,
-                                plot_rad_profile=False, plot_sed=False):
+                                plot_rad_profile=False, plot_sed=False,
+                                plot_muse=True, ppxf_fit_dict=None):
         """
 
         This method creates a holistic inspection plot for one coordinate.
@@ -47,7 +50,17 @@ class MultiPanelVisualizer:
         # phot_visual_access.compute_ha_ew(fig=fig, fig_dict=plot_params.holistic_viewer1_param_dic, ra=ra, dec=dec)
 
         # # get MUSE spectrum from region
-        # phot_visual_access.plot_muse_spec(fig=fig, fig_dict=plot_params.holistic_viewer1_param_dic, ra=ra, dec=dec)
+        if plot_muse:
+            if ppxf_fit_dict is None:
+                rad_arcsec = phangs_info.muse_obs_res_dict[phot_visual_access.spec_target_name]['copt_res'] / 2
+                spec_dict = phot_visual_access.extract_muse_spec_circ_app(ra=ra, dec=dec,
+                                                                          rad_arcsec=rad_arcsec, wave_range=None,
+                                                                          res='copt')
+                ppxf_fit_dict = spec_tools.SpecTools.fit_ppxf2spec(spec_dict=spec_dict,
+                                                                   target=phot_visual_access.spec_target_name,
+                                                                   sps_name='fsps', age_range=None, metal_range=None)
+            phot_visual_access.plot_muse_spec(fig=fig, fig_dict=plot_params.holistic_viewer1_param_dic, ra=ra, dec=dec,
+                                              ppxf_fit_dict=ppxf_fit_dict)
 
         return fig
 
@@ -108,20 +121,65 @@ class MultiPanelVisualizer:
         return fig
 
     @staticmethod
-    def muse_spec_viwer(target_name, ra , dec, spec_rad=None):
+    def muse_spec_viewer(target_name, ra , dec, spec_rad=None):
         # create figure
-        fig = plotting_tools.AxisTools.init_fig(fig_dict=plot_params.muse_spec_viwer_param_dict)
+        fig = plotting_tools.AxisTools.init_fig(fig_dict=plot_params.muse_spec_viewer_param_dict)
 
         # get photometry plotting access
         phot_visual_access = PhotVisualizer(target_name=target_name)
 
         # get MUSE spectrum from region
         spec_dict, ppxf_fit_dict, em_fit_dict = phot_visual_access.plot_muse_spec(
-            fig=fig, fig_dict=plot_params.muse_spec_viwer_param_dict, ra=ra, dec=dec, n_nl_gauss=2)
+            fig=fig, fig_dict=plot_params.muse_spec_viewer_param_dict, ra=ra, dec=dec, n_nl_gauss=2)
 
         # plot hb and oiii
-        phot_visual_access.plot_spec_features(fig=fig, fig_dict=plot_params.muse_spec_viwer_param_dict,
+        phot_visual_access.plot_spec_features(fig=fig, fig_dict=plot_params.muse_spec_viewer_param_dict,
                                               ppxf_fit_dict=ppxf_fit_dict, em_fit_dict=em_fit_dict)
+        return fig
+
+
+
+    @staticmethod
+    def fit_spec_viewer(target_name, ra , dec, rad_arcsec, spec_dict=None, ppxf_fit_dict=None, em_line_fit_dict=None,
+                        phot_visual_access=None):
+        # create figure
+        fig = plotting_tools.AxisTools.init_fig(fig_dict=plot_params.fit_spec_viewer_param_dict)
+
+        # get photometry plotting access
+        if phot_visual_access is None:
+            phot_visual_access = PhotVisualizer(target_name=target_name)
+
+        if spec_dict is None:
+            spec_dict = phot_visual_access.extract_muse_spec_circ_app(
+                ra=ra, dec=dec, rad_arcsec=rad_arcsec, wave_range=None, res='copt')
+
+        if ppxf_fit_dict is None:
+            # redshift = spec_tools.SpecTools.get_target_ned_redshift(
+            #     target=helper_func.FileTools.target_name_no_directions(target=phangs_spec.spec_target_name))
+            # vsys = spec_tools.SpecTools.get_target_sys_vel(
+            #     target=helper_func.FileTools.target_name_no_directions(target=phangs_spec.spec_target_name))
+            #
+            # ppxf fit
+            ppxf_fit_dict = spec_tools.SpecTools.fit_ppxf2spec(spec_dict=spec_dict, target=target_name,
+                                                           sps_name='fsps', age_range=None, metal_range=None)
+
+        if em_line_fit_dict is None:
+            em_line_fit_dict = spec_tools.SpecTools.fit_em_lines2spec(
+                target=target_name, wave=ppxf_fit_dict['wave'],
+                em_flux=ppxf_fit_dict['total_flux'] - ppxf_fit_dict['continuum_best_fit'],
+                em_flux_err=ppxf_fit_dict['total_flux_err'],
+                n_nl_gauss=2, n_nl_lorentz=0, n_bl_gauss=0,
+                x_data_format='wave', instrument='muse', blue_limit=30., red_limit=30., search_outflow=False,
+                outflow_shift='redshift', outflow_mu_offset=400, outflow_sig=1200,
+                init_mu_nl_gauss=100, init_sig_nl_gauss=200)
+
+        # get MUSE spectrum from region
+        phot_visual_access.plot_muse_spec(
+            fig=fig, fig_dict=plot_params.fit_spec_viewer_param_dict, ra=ra, dec=dec, ppxf_fit_dict=ppxf_fit_dict)
+
+        # plot hb and oiii
+        phot_visual_access.plot_spec_features(fig=fig, fig_dict=plot_params.fit_spec_viewer_param_dict,
+                                              em_line_fit_dict=em_line_fit_dict)
         return fig
 
 

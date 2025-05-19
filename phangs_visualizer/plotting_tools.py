@@ -25,6 +25,8 @@ from astropy.visualization import SqrtStretch
 
 from astropy.convolution import convolve
 
+from regions import PixCoord, RectanglePixelRegion
+
 import numpy as np
 from setuptools.command.rotate import rotate
 
@@ -79,6 +81,11 @@ color_list_set2 = plt.get_cmap('Set2')(range(8))
 color_list_set3 = plt.get_cmap('Set3')(range(12))
 color_list_paired = plt.get_cmap('Paired')(range(12))
 color_list_tab10 = plt.get_cmap('tab10')(range(10))
+color_list_pastel2 = plt.get_cmap('Pastel2')(range(8))
+
+color_list_rainbow = plt.get_cmap('rainbow')
+
+
 
 
 
@@ -351,6 +358,7 @@ class WCSPlottingTools:
     @staticmethod
     def arr_axis_params(ax, ra_tick_label=True, dec_tick_label=True,
                         ra_axis_label='R.A. (2000.0)', dec_axis_label='DEC. (2000.0)',
+                        ra_label_ha='center', dec_label_va='center',
                         ra_minpad=0.8, dec_minpad=0.8, ra_tick_color='k', ra_label_color='k',
                         dec_tick_color='k', dec_label_color='k',
                         fontsize=15., labelsize=14., ra_tick_num=None, dec_tick_num=None,
@@ -382,14 +390,13 @@ class WCSPlottingTools:
             ax.coords['ra'].set_axislabel(' ', color=ra_label_color)
         else:
             ax.coords['ra'].set_ticklabel(rotation=0, color=ra_label_color)
-            ax.coords['ra'].set_axislabel(ra_axis_label, minpad=ra_minpad, color=ra_label_color, fontsize=fontsize)
-
+            ax.coords['ra'].set_axislabel(ra_axis_label, minpad=ra_minpad, color=ra_label_color, ha=ra_label_ha, fontsize=fontsize)
         if not dec_tick_label:
             ax.coords['dec'].set_ticklabel_visible(False)
             ax.coords['dec'].set_axislabel(' ', color=dec_label_color)
         else:
             ax.coords['dec'].set_ticklabel(rotation=90, color=dec_label_color)
-            ax.coords['dec'].set_axislabel(dec_axis_label, minpad=dec_minpad, color=dec_label_color, fontsize=fontsize)
+            ax.coords['dec'].set_axislabel(dec_axis_label, minpad=dec_minpad, color=dec_label_color, va=dec_label_va, fontsize=fontsize)
 
         if ra_tick_num is not None:
             ax.coords['ra'].set_ticks(number=ra_tick_num)
@@ -399,6 +406,18 @@ class WCSPlottingTools:
             ax.coords['dec'].set_ticks(number=dec_tick_num)
         if dec_minor_ticks:
             ax.coords['dec'].display_minor_ticks(True)
+
+    @staticmethod
+    def plot_slit(ax, coords_slit_pix, slit_length, slit_width, slit_pa, plot_scatter=True, color='red', lw=2,
+                  linestyle='-', offset=90):
+        x_cent = float(coords_slit_pix[0])
+        y_cent = float(coords_slit_pix[1])
+
+        reg = RectanglePixelRegion(PixCoord(x=x_cent, y=y_cent), width=slit_length,
+                                   height=slit_width, angle=(slit_pa + offset) * u.deg)
+        reg.plot(ax=ax, edgecolor=color, linewidth=lw, linestyle=linestyle)
+        if plot_scatter:
+            ax.scatter(coords_slit_pix[0], coords_slit_pix[1], c='r', s=120)
 
 
 class AxisTools:
@@ -782,6 +801,87 @@ class CCDTools:
             #         transform_rotates_text=True, rotation_mode='anchor',
             #         rotation=angle_av_vector, fontsize=fontsize, color=text_color)
 
+    @staticmethod
+    def plot_reddening_vect_wave_av(ax, x_wave_1, x_wave_2, y_wave_1, y_wave_2,
+                                 x_color_int=0, y_color_int=0, av_val=1,
+                        linewidth=2, line_color='k',
+                        text=True, fontsize=20, text_color='k', x_text_offset=0.01, y_text_offset=-0.01):
+
+        color_ext_x = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=x_wave_1, wave2=x_wave_2, av=av_val)
+        color_ext_y = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=y_wave_1, wave2=y_wave_2, av=av_val)
+        print(color_ext_x)
+        print(color_ext_y)
+
+        # slope_av_vector = ((y_color_int + color_ext_y) - y_color_int) / ((x_color_int + color_ext_x) - x_color_int)
+
+        angle_av_vector = np.arctan(color_ext_y/color_ext_x) * 180/np.pi
+
+        ax.annotate('', xy=(x_color_int + color_ext_x, y_color_int + color_ext_y), xycoords='data',
+                    xytext=(x_color_int, y_color_int), fontsize=fontsize,
+                    textcoords='data', arrowprops=dict(arrowstyle='-|>', color=line_color, lw=linewidth, ls='-'))
+
+        if text:
+            if isinstance(av_val, int):
+                arrow_text = r'A$_{\rm V}$=%i mag' % av_val
+            else:
+                arrow_text = r'A$_{\rm V}$=%.1f mag' % av_val
+
+            StrTools.display_text_on_data_point(ax=ax, text=arrow_text,
+                                                x_data_point=x_color_int + color_ext_x/2,
+                                                y_data_point= y_color_int + color_ext_y/2,
+                                                x_axis_frac_offset=x_text_offset, y_axis_frac_offset=y_text_offset,
+                                              x_scale_log=False, y_scale_log=False,
+                                   fontsize=fontsize, text_color=text_color,
+                                   horizontal_alignment='center',
+                                   vertical_alignment='bottom',
+                                   path_eff=False, path_err_linewidth=3, path_eff_color='white', rotation=angle_av_vector)
+
+            # ax.text(x_color_int + x_text_offset, y_color_int + y_text_offset, arrow_text,
+            #         horizontalalignment='left', verticalalignment='bottom',
+            #         transform_rotates_text=True, rotation_mode='anchor',
+            #         rotation=angle_av_vector, fontsize=fontsize, color=text_color)
+
+
+    @staticmethod
+    def plot_reddening_vect_wave_ebv(ax, x_wave_1, x_wave_2, y_wave_1, y_wave_2,
+                                 x_color_int=0, y_color_int=0, ebv_val=1,
+                        linewidth=2, line_color='k',
+                        text=True, fontsize=20, text_color='k', x_text_offset=0.01, y_text_offset=-0.01):
+
+        color_ext_x = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=x_wave_1, wave2=x_wave_2, av=dust_tools.extinction_tools.ExtinctionTools.ebv2av(ebv=ebv_val))
+        color_ext_y = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=y_wave_1, wave2=y_wave_2, av=dust_tools.extinction_tools.ExtinctionTools.ebv2av(ebv=ebv_val))
+        print(color_ext_x)
+        print(color_ext_y)
+
+        # slope_av_vector = ((y_color_int + color_ext_y) - y_color_int) / ((x_color_int + color_ext_x) - x_color_int)
+
+        angle_av_vector = np.arctan(color_ext_y/color_ext_x) * 180/np.pi
+
+        ax.annotate('', xy=(x_color_int + color_ext_x, y_color_int + color_ext_y), xycoords='data',
+                    xytext=(x_color_int, y_color_int), fontsize=fontsize,
+                    textcoords='data', arrowprops=dict(arrowstyle='-|>', color=line_color, lw=linewidth, ls='-'))
+
+        if text:
+            if isinstance(ebv_val, int):
+                arrow_text = r'E(B-V)=%i mag' % ebv_val
+            else:
+                arrow_text = r'E(B-V)=%.1f mag' % ebv_val
+
+            StrTools.display_text_on_data_point(ax=ax, text=arrow_text,
+                                                x_data_point=x_color_int + color_ext_x/2,
+                                                y_data_point= y_color_int + color_ext_y/2,
+                                                x_axis_frac_offset=x_text_offset, y_axis_frac_offset=y_text_offset,
+                                              x_scale_log=False, y_scale_log=False,
+                                   fontsize=fontsize, text_color=text_color,
+                                   horizontal_alignment='center',
+                                   vertical_alignment='bottom',
+                                   path_eff=False, path_err_linewidth=3, path_eff_color='white', rotation=angle_av_vector)
+
+            # ax.text(x_color_int + x_text_offset, y_color_int + y_text_offset, arrow_text,
+            #         horizontalalignment='left', verticalalignment='bottom',
+            #         transform_rotates_text=True, rotation_mode='anchor',
+            #         rotation=angle_av_vector, fontsize=fontsize, color=text_color)
+
 
 class StrTools:
     """
@@ -811,6 +911,17 @@ class StrTools:
 
         d1 = ctx.create_decimal(repr(f))
         return format(d1, 'f')
+
+    @staticmethod
+    def float2mag_str(f, f_err=None, n_digits=2):
+        order_of_mag = int(np.log10(f))
+        str_value = StrTools.float2str(f=f/(10**(order_of_mag)), max_digits=n_digits)
+        if f_err is not None:
+            str_value_f_err = f"{f_err/(10**(order_of_mag)):.{n_digits}f}"
+
+            str_value += (r' $\pm$ ' + str_value_f_err)
+        str_value += (r' $10^{%i}$' % order_of_mag)
+        return str_value
 
     @staticmethod
     def age2label(age):
@@ -852,7 +963,7 @@ class StrTools:
                                    fontsize=None, text_color='k',
                                    horizontal_alignment='center',
                                    vertical_alignment='bottom',
-                                   path_eff=True, path_err_linewidth=3, path_eff_color='white', rotation=0, rotation_mode='anchor', transform_rotates_text=True):
+                                       path_eff=True, path_err_linewidth=3, path_eff_color='white', rotation=0, rotation_mode='anchor', transform_rotates_text=True):
         if path_eff:
             pe = [patheffects.withStroke(linewidth=path_err_linewidth, foreground=path_eff_color)]
         else:
@@ -890,7 +1001,7 @@ class ColorBarTools:
 
     @staticmethod
     def create_cbar(ax_cbar, cmap, norm, cbar_label, fontsize, ticks=None, labelpad=2, tick_width=2,
-                    orientation='vertical', top_lable=True,
+                    orientation='vertical', top_lable=True, label_color='k',
                     extend='neither'):
         """
 
@@ -913,31 +1024,31 @@ class ColorBarTools:
         """
         ColorbarBase(ax_cbar, orientation=orientation, cmap=cmap, norm=norm, extend=extend, ticks=ticks)
         if orientation == 'vertical':
-            ax_cbar.set_ylabel(cbar_label, labelpad=labelpad, fontsize=fontsize)
+            ax_cbar.set_ylabel(cbar_label, labelpad=labelpad, fontsize=fontsize, color=label_color)
             ax_cbar.tick_params(axis='both', which='both', width=tick_width, direction='in', top=True,
                                 labelbottom=False,
-                                labeltop=True, labelsize=fontsize)
+                                labeltop=True, labelsize=fontsize, colors=label_color)
         elif orientation == 'horizontal':
             if top_lable:
                 # ax_cbar.set_xlabel(cbar_label, labelpad=labelpad, fontsize=fontsize)
                 ax_cbar.tick_params(width=tick_width, direction='in', top=True, labeltop=True, bottom=False,
                                     labelbottom=False,
-                                    labelsize=fontsize)
+                                    labelsize=fontsize, colors=label_color)
                 # also put the minor ticks to the top
                 ax_cbar.tick_params(which='minor', width=tick_width, direction='in',
                                     top=True, labeltop=True, bottom=False, labelbottom=False,
                                     labelsize=fontsize / 1.5)
-                ax_cbar.set_title(cbar_label, fontsize=fontsize)
+                ax_cbar.set_title(cbar_label, fontsize=fontsize, color=label_color)
             else:
                 # ax_cbar.set_xlabel(cbar_label, labelpad=labelpad, fontsize=fontsize)
                 ax_cbar.tick_params(width=tick_width, direction='in', top=False, labeltop=False, bottom=True,
                                     labelbottom=True,
-                                    labelsize=fontsize)
+                                    labelsize=fontsize, colors=label_color)
                 # also put the minor ticks to the top
                 ax_cbar.tick_params(which='minor', width=tick_width, direction='in',
                                     top=False, labeltop=False, bottom=True, labelbottom=True,
-                                    labelsize=fontsize / 1.5)
-                ax_cbar.set_xlabel(cbar_label, fontsize=fontsize)
+                                    labelsize=fontsize / 1.5, colors=label_color)
+                ax_cbar.set_xlabel(cbar_label, fontsize=fontsize, color=label_color)
     @staticmethod
     def compute_cbar_norm(vmin_vmax=None, cutout_list=None, log_scale=False):
         """
@@ -1265,9 +1376,10 @@ class SpecPlotTools:
             return color_list_tab10[2]
 
     @staticmethod
-    def plot_em_line_spec(ax, em_fit_dict, line_list, ax_res=None, left_offset=15, right_offset=15,
+    def plot_em_line_spec(ax, em_line_fit_dict, line_list, ax_res=None, left_offset=15, right_offset=15,
                           y_axis_offset_frac_bottom = 0.1, y_axis_offset_frac_top = 0.05,
                           instrument='muse', display_legend=False, display_line_names=True,
+                          label_color='k', spec_line_color='k',
                           font_size_label=20, font_size_title=30,
                           display_y_label=True, y_label_pos='left',
                           display_x_label=True, y_axis_scale=1e16,
@@ -1275,15 +1387,15 @@ class SpecPlotTools:
 
 
         # get spec dimensions
-        left_obs_wave = SpecTools.get_line_pos(line=np.min(line_list), vel_kmps=em_fit_dict['sys_vel'],
+        left_obs_wave = SpecTools.get_line_pos(line=np.min(line_list), vel_kmps=em_line_fit_dict['sys_vel'],
                                                instrument=instrument)
-        right_obs_wave = SpecTools.get_line_pos(line=np.max(line_list), vel_kmps=em_fit_dict['sys_vel'],
+        right_obs_wave = SpecTools.get_line_pos(line=np.max(line_list), vel_kmps=em_line_fit_dict['sys_vel'],
                                                 instrument=instrument)
         min_wave = left_obs_wave - left_offset
         max_wave = right_obs_wave + right_offset
-        mask_select_wave = ((em_fit_dict['wave'] > min_wave) & (em_fit_dict['wave'] < max_wave))
-        spec_min = np.nanmin(em_fit_dict['em_flux'][mask_select_wave])
-        spec_max = np.nanmax(em_fit_dict['em_flux'][mask_select_wave])
+        mask_select_wave = ((em_line_fit_dict['wave'] > min_wave) & (em_line_fit_dict['wave'] < max_wave))
+        spec_min = np.nanmin(em_line_fit_dict['em_flux'][mask_select_wave])
+        spec_max = np.nanmax(em_line_fit_dict['em_flux'][mask_select_wave])
         spec_width = spec_max - spec_min
 
         # set limits
@@ -1291,23 +1403,44 @@ class SpecPlotTools:
         ax.set_ylim((spec_min - y_axis_offset_frac_bottom * spec_width) * y_axis_scale,
                     (spec_max + y_axis_offset_frac_top * spec_width) * y_axis_scale)
         # plot all the data
-        ax.step(em_fit_dict['wave'], em_fit_dict['em_flux'] * y_axis_scale, where='mid', linewidth=data_lw, color='k',
+        ax.step(em_line_fit_dict['wave'], em_line_fit_dict['em_flux'] * y_axis_scale, where='mid', linewidth=data_lw, color=spec_line_color,
                 label='Cont. sub. Spec.')
 
         # plot all individual models
         dummy_wave = np.linspace(min_wave, max_wave, sum(mask_select_wave) * 10)
         dummy_total_model = np.zeros(len(dummy_wave))
 
-        for gauss_idx in range(em_fit_dict['n_nl_gauss']):
+        # plot narrow gaussian lines
+        for gauss_idx in range(em_line_fit_dict['n_nl_gauss']):
             dummy_gaus_comp = np.zeros(len(dummy_wave))
 
             for line in line_list:
-                dummy_gaus_comp += SpecTools.get_obs_gauss_from_fit_output(x_data=dummy_wave, em_fit_dict=em_fit_dict,
+                dummy_gaus_comp += SpecTools.get_obs_gauss_from_fit_output(x_data=dummy_wave,
+                                                                           em_line_fit_dict=em_line_fit_dict,
                                                                            line=line, gauss_index=gauss_idx,
                                                                            line_type='nl', vel_unit='kmps',
-                                                                instrument=instrument)
-            ax.plot(dummy_wave, dummy_gaus_comp * y_axis_scale, linewidth=model_lw, color=SpecPlotTools.get_em_comp_colors(
-                idx=gauss_idx, n_comps=em_fit_dict['n_nl_gauss'], line_type='nl'), label='Comp %i' % (gauss_idx + 1))
+                                                                           instrument=instrument)
+            ax.plot(dummy_wave, dummy_gaus_comp * y_axis_scale, linewidth=model_lw,
+                    color=SpecPlotTools.get_em_comp_colors(
+                        idx=gauss_idx, n_comps=em_line_fit_dict['n_nl_gauss'], line_type='nl'),
+                    label='Comp %i' % (gauss_idx + 1))
+            dummy_total_model += dummy_gaus_comp
+
+        # plot broad gaussian lines
+        for gauss_idx in range(em_line_fit_dict['n_bl_gauss']):
+            dummy_gaus_comp = np.zeros(len(dummy_wave))
+
+            for line in line_list:
+                if line in [4863, 6565]:
+                    dummy_gaus_comp += SpecTools.get_obs_gauss_from_fit_output(x_data=dummy_wave,
+                                                                               em_line_fit_dict=em_line_fit_dict,
+                                                                               line=line, gauss_index=gauss_idx,
+                                                                               line_type='bl', vel_unit='kmps',
+                                                                               instrument=instrument)
+            ax.plot(dummy_wave, dummy_gaus_comp * y_axis_scale, linewidth=model_lw,
+                    color=SpecPlotTools.get_em_comp_colors(
+                        idx=gauss_idx, n_comps=em_line_fit_dict['n_bl_gauss'], line_type='bl'),
+                    label='BRL Comp %i' % (gauss_idx + 1))
             dummy_total_model += dummy_gaus_comp
 
         ax.plot(dummy_wave, dummy_total_model * y_axis_scale, linewidth=model_lw,
@@ -1321,35 +1454,35 @@ class SpecPlotTools:
             for line in line_list:
                 StrTools.display_text_on_data_point(
                     ax=ax, text=phys_params.opt_line_wave[line]['plot_name'],
-                    x_data_point=SpecTools.get_line_pos(line=line, vel_kmps=em_fit_dict['sys_vel'], instrument=instrument),
+                    x_data_point=SpecTools.get_line_pos(line=line, vel_kmps=em_line_fit_dict['sys_vel'], instrument=instrument),
                     y_data_point = 0, x_axis_frac_offset=0., y_axis_frac_offset=-0.02,
                     x_scale_log=False, y_scale_log=False, fontsize=font_size_title, text_color='k',
                     horizontal_alignment='center', vertical_alignment='top', path_eff=True,
                     path_err_linewidth=3, path_eff_color='white', rotation=0,
                     rotation_mode='anchor', transform_rotates_text=True)
-                ax.plot([SpecTools.get_line_pos(line=line, vel_kmps=em_fit_dict['sys_vel'], instrument=instrument),
-                         SpecTools.get_line_pos(line=line, vel_kmps=em_fit_dict['sys_vel'], instrument=instrument)],
+                ax.plot([SpecTools.get_line_pos(line=line, vel_kmps=em_line_fit_dict['sys_vel'], instrument=instrument),
+                         SpecTools.get_line_pos(line=line, vel_kmps=em_line_fit_dict['sys_vel'], instrument=instrument)],
                         [0, SpecTools.estimate_line_amp(
-                            line=line, wave=em_fit_dict['wave'], em_flux=em_fit_dict['em_flux'],
-                            vel=em_fit_dict['sys_vel'], instrument=instrument, bin_rad=4) * y_axis_scale * 0.2],
+                            line=line, wave=em_line_fit_dict['wave'], em_flux=em_line_fit_dict['em_flux'],
+                            vel=em_line_fit_dict['sys_vel'], instrument=instrument, bin_rad=4) * y_axis_scale * 0.2],
                         color='k', linestyle='--')
-        ax.tick_params(axis='both', which='both', width=1.5, length=4, right=True, top=True, direction='in',
+        ax.tick_params(axis='both', which='both', width=1.5, length=4, right=True, top=True, direction='in', colors=label_color,
                            labelsize=font_size_label)
         # put X in labels
         if ax_res is not None:
-            best_fit = np.zeros(len(em_fit_dict['wave']))
-            best_fit[em_fit_dict['ln_mask']] = em_fit_dict['best_fit']
-            ax_res.step(em_fit_dict['wave'][mask_select_wave],
-                        (em_fit_dict['em_flux'] - best_fit)[mask_select_wave] * y_axis_scale, where='mid', linewidth=2,
+            best_fit = np.zeros(len(em_line_fit_dict['wave']))
+            best_fit[em_line_fit_dict['ln_mask']] = em_line_fit_dict['best_fit']
+            ax_res.step(em_line_fit_dict['wave'][mask_select_wave],
+                        (em_line_fit_dict['em_flux'] - best_fit)[mask_select_wave] * y_axis_scale, where='mid', linewidth=2,
                         color='k')
             ax_res.set_xlim(min_wave, max_wave)
             ax_res.plot([min_wave, max_wave], [0, 0], linewidth=2,
                         color=SpecPlotTools.get_em_comp_colors(line_type='total'))
             ax.set_xticklabels([])
-            ax_res.tick_params(axis='both', which='both', width=1.5, length=4, right=True, top=True, direction='in',
+            ax_res.tick_params(axis='both', which='both', width=1.5, length=4, right=True, top=True, direction='in', colors=label_color,
                                labelsize=font_size_label)
             if display_x_label:
-                ax_res.set_xlabel(r'Wavelength [${\rm \AA}$]', fontsize=font_size_label)
+                ax_res.set_xlabel(r'Wavelength [${\rm \AA}$]', fontsize=font_size_label, color=label_color)
         else:
             if display_x_label:
                 ax.set_xlabel(r'Wavelength [${\rm \AA}$]', fontsize=font_size_label)
@@ -1359,13 +1492,13 @@ class SpecPlotTools:
 
             if display_y_label:
                 ax.set_ylabel(r'$\phi$ [10$^{-%i}$ erg cm$^{-2}$ s$^{-1}$ ${\rm \AA^{-1}}$]' % int(np.log10(y_axis_scale)),
-                              fontsize=font_size_label)
+                              fontsize=font_size_label, color=label_color)
         else:
             ax.yaxis.set_label_position('right')
             ax.yaxis.tick_right()
             if display_y_label:
                 ax.set_ylabel(r'$\phi$ [10$^{-%i}$ erg cm$^{-2}$ s$^{-1}$ ${\rm \AA^{-1}}$]' % int(np.log10(y_axis_scale)),
-                              fontsize=font_size_label)
+                              fontsize=font_size_label, color=label_color)
 
 
     @staticmethod
@@ -1379,8 +1512,8 @@ class SpecPlotTools:
 
         min_obs_wave_red_bump = SpecTools.conv_rest_wave2obs_wave(rest_wave=min_rest_wave_red_bump, vel_kmps=ppxf_fit_dict['sys_vel'])
         max_obs_wave_red_bump = SpecTools.conv_rest_wave2obs_wave(rest_wave=max_rest_wave_red_bump, vel_kmps=ppxf_fit_dict['sys_vel'])
-        mask = ((ppxf_fit_dict['wavelength'] >  min_obs_wave_red_bump) &
-                (ppxf_fit_dict['wavelength'] <  max_obs_wave_red_bump))
+        mask = ((ppxf_fit_dict['wave'] >  min_obs_wave_red_bump) &
+                (ppxf_fit_dict['wave'] <  max_obs_wave_red_bump))
 
 
         spec_min = np.nanmin(ppxf_fit_dict['total_flux'][mask])
@@ -1393,11 +1526,11 @@ class SpecPlotTools:
                     (spec_max + y_axis_offset_frac_top * spec_width) * y_axis_scale)
 
 
-        ax.step(ppxf_fit_dict['wavelength'][mask], ppxf_fit_dict['total_flux'][mask] * y_axis_scale, where='mid',
+        ax.step(ppxf_fit_dict['wave'][mask], ppxf_fit_dict['total_flux'][mask] * y_axis_scale, where='mid',
                 linewidth=data_lw, color='k', label='Obs. Spectrum')
 
         if plot_continuum:
-            ax.plot(ppxf_fit_dict['wavelength'][mask], ppxf_fit_dict['continuum_best_fit'][mask] * 1e16, linewidth=model_lw,
+            ax.plot(ppxf_fit_dict['wave'][mask], ppxf_fit_dict['continuum_best_fit'][mask] * 1e16, linewidth=model_lw,
                     color='tab:orange', label='Stellar Continuum fit')
         if display_label:
             StrTools.display_text_in_corner(ax=ax, text='Red Bump', fontsize=font_size_title, text_color='k',
@@ -1432,16 +1565,16 @@ class SpecPlotTools:
 
         min_obs_wave_he1 = SpecTools.conv_rest_wave2obs_wave(rest_wave=min_rest_wave_he1, vel_kmps=ppxf_fit_dict['sys_vel'])
         max_obs_wave_he1 = SpecTools.conv_rest_wave2obs_wave(rest_wave=max_rest_wave_he1, vel_kmps=ppxf_fit_dict['sys_vel'])
-        mask = ((ppxf_fit_dict['wavelength'] >  min_obs_wave_he1) &
-                (ppxf_fit_dict['wavelength'] <  max_obs_wave_he1))
+        mask = ((ppxf_fit_dict['wave'] >  min_obs_wave_he1) &
+                (ppxf_fit_dict['wave'] <  max_obs_wave_he1))
         print(ppxf_fit_dict.keys())
 
 
-        ax.step(ppxf_fit_dict['wavelength'][mask], ppxf_fit_dict['total_flux'][mask] * y_axis_scale, where='mid', linewidth=2, color='k',
+        ax.step(ppxf_fit_dict['wave'][mask], ppxf_fit_dict['total_flux'][mask] * y_axis_scale, where='mid', linewidth=2, color='k',
                 label='Obs. Spectrum')
-        ax.plot(ppxf_fit_dict['wavelength'][mask], ppxf_fit_dict['best_fit'][mask] * y_axis_scale, linewidth=3, color='tab:red',
+        ax.plot(ppxf_fit_dict['wave'][mask], ppxf_fit_dict['best_fit'][mask] * y_axis_scale, linewidth=3, color='tab:red',
                           label='Best total fit')
-        ax.plot(ppxf_fit_dict['wavelength'][mask], ppxf_fit_dict['continuum_best_fit'][mask] * 1e16, linewidth=3,
+        ax.plot(ppxf_fit_dict['wave'][mask], ppxf_fit_dict['continuum_best_fit'][mask] * 1e16, linewidth=3,
                 color='tab:orange', label='Stellar Continuum fit')
         if display_label:
             StrTools.display_text_in_corner(ax=ax, text='HeI 6680', fontsize=font_size_title, text_color='k',
@@ -1455,3 +1588,169 @@ class SpecPlotTools:
         if display_y_label:
             ax.set_ylabel(r'$\phi$ [10$^{-%i}$ erg cm$^{-2}$ s$^{-1}$ ${\rm \AA^{-1}}$]' % int(np.log10(y_axis_scale)),
                           fontsize=font_size_label)
+
+from matplotlib import patches
+from matplotlib import text as mtext
+import math
+
+class CurvedText(mtext.Text):
+    """
+    A text object that follows an arbitrary curve.
+    """
+    def __init__(self, x, y, text, axes, **kwargs):
+        super(CurvedText, self).__init__(x[0],y[0],' ', **kwargs)
+
+        axes.add_artist(self)
+
+        ##saving the curve:
+        self.__x = x
+        self.__y = y
+        self.__zorder = self.get_zorder()
+
+        ##creating the text objects
+        self.__Characters = []
+        for c in text:
+            if c == ' ':
+                ##make this an invisible 'a':
+                t = mtext.Text(0,0,'a')
+                t.set_alpha(0.0)
+            else:
+                t = mtext.Text(0,0,c, **kwargs)
+
+            #resetting unnecessary arguments
+            t.set_ha('center')
+            t.set_rotation(0)
+            t.set_zorder(self.__zorder +1)
+
+            self.__Characters.append((c,t))
+            axes.add_artist(t)
+
+
+    ##overloading some member functions, to assure correct functionality
+    ##on update
+    def set_zorder(self, zorder):
+        super(CurvedText, self).set_zorder(zorder)
+        self.__zorder = self.get_zorder()
+        for c,t in self.__Characters:
+            t.set_zorder(self.__zorder+1)
+
+    def draw(self, renderer, *args, **kwargs):
+        """
+        Overload of the Text.draw() function. Do not do
+        do any drawing, but update the positions and rotation
+        angles of self.__Characters.
+        """
+        self.update_positions(renderer)
+
+    def update_positions(self,renderer):
+        """
+        Update positions and rotations of the individual text elements.
+        """
+
+        #preparations
+
+        ##determining the aspect ratio:
+        ##from https://stackoverflow.com/a/42014041/2454357
+
+        ##data limits
+        xlim = self.axes.get_xlim()
+        ylim = self.axes.get_ylim()
+        ## Axis size on figure
+        figW, figH = self.axes.get_figure().get_size_inches()
+        ## Ratio of display units
+        _, _, w, h = self.axes.get_position().bounds
+        ##final aspect ratio
+        aspect = ((figW * w)/(figH * h))*(ylim[1]-ylim[0])/(xlim[1]-xlim[0])
+
+        #points of the curve in figure coordinates:
+        x_fig,y_fig = (
+            np.array(l) for l in zip(*self.axes.transData.transform([
+            (i,j) for i,j in zip(self.__x,self.__y)
+            ]))
+        )
+
+        #point distances in figure coordinates
+        x_fig_dist = (x_fig[1:]-x_fig[:-1])
+        y_fig_dist = (y_fig[1:]-y_fig[:-1])
+        r_fig_dist = np.sqrt(x_fig_dist**2+y_fig_dist**2)
+
+        #arc length in figure coordinates
+        l_fig = np.insert(np.cumsum(r_fig_dist),0,0)
+
+        #angles in figure coordinates
+        rads = np.arctan2((y_fig[1:] - y_fig[:-1]),(x_fig[1:] - x_fig[:-1]))
+        degs = np.rad2deg(rads)
+
+
+        rel_pos = 10
+        for c,t in self.__Characters:
+            #finding the width of c:
+            t.set_rotation(0)
+            t.set_va('center')
+            bbox1  = t.get_window_extent(renderer=renderer)
+            w = bbox1.width
+            h = bbox1.height
+
+            #ignore all letters that don't fit:
+            if rel_pos+w/2 > l_fig[-1]:
+                t.set_alpha(0.0)
+                rel_pos += w
+                continue
+
+            elif c != ' ':
+                t.set_alpha(1.0)
+
+            #finding the two data points between which the horizontal
+            #center point of the character will be situated
+            #left and right indices:
+            il = np.where(rel_pos+w/2 >= l_fig)[0][-1]
+            ir = np.where(rel_pos+w/2 <= l_fig)[0][0]
+
+            #if we exactly hit a data point:
+            if ir == il:
+                ir += 1
+
+            #how much of the letter width was needed to find il:
+            used = l_fig[il]-rel_pos
+            rel_pos = l_fig[il]
+
+            #relative distance between il and ir where the center
+            #of the character will be
+            fraction = (w/2-used)/r_fig_dist[il]
+
+            ##setting the character position in data coordinates:
+            ##interpolate between the two points:
+            x = self.__x[il]+fraction*(self.__x[ir]-self.__x[il])
+            y = self.__y[il]+fraction*(self.__y[ir]-self.__y[il])
+
+            #getting the offset when setting correct vertical alignment
+            #in data coordinates
+            t.set_va(self.get_va())
+            bbox2  = t.get_window_extent(renderer=renderer)
+
+            bbox1d = self.axes.transData.inverted().transform(bbox1)
+            bbox2d = self.axes.transData.inverted().transform(bbox2)
+            dr = np.array(bbox2d[0]-bbox1d[0])
+
+            #the rotation/stretch matrix
+            rad = rads[il]
+            rot_mat = np.array([
+                [math.cos(rad), math.sin(rad)*aspect],
+                [-math.sin(rad)/aspect, math.cos(rad)]
+            ])
+
+            ##computing the offset vector of the rotated character
+            drp = np.dot(dr,rot_mat)
+
+            #setting final position and rotation:
+            t.set_position(np.array([x,y])+drp)
+            t.set_rotation(degs[il])
+
+            t.set_va('center')
+            t.set_ha('center')
+
+            #updating rel_pos to right edge of character
+            rel_pos += w-used
+
+
+

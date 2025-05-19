@@ -211,6 +211,9 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
                 obs = obs_type.split('_')[0]
                 if obs == 'hst':
+                    # check if object has hst Ha observation
+                    if (fig_dict['%s_red_band' % obs_type] == 'Ha') & (not helper_func.ObsTools.check_hst_ha_obs(target=self.phot_hst_target_name)):
+                        continue
                     band_list = [helper_func.ObsTools.filter_name2hst_band(target=self.phot_hst_target_name,
                                                                                      filter_name=fig_dict[
                                                                                          '%s_red_band' % obs_type]),
@@ -453,7 +456,7 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                 col_idx =0
                 row_idx -= 1
 
-    def get_rgb_zoom_in(self, ra, dec, cutout_size, band_red, band_green, band_blue, ref_band='blue'):
+    def get_rgb_zoom_in(self, ra, dec, cutout_size, band_red, band_green, band_blue, ref_band='blue', **kwargs):
         """
         Function to create an RGB image of a zoom in region of PHANGS observations
 
@@ -517,12 +520,7 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
         cutout_rgb_img = plotting_tools.ImgTools.get_rgb_img(data_r=cutout_data_red,
                                           data_g=cutout_data_green,
-                                          data_b=cutout_data_blue,
-                                          # min_max_r=(min_red_hst, max_red_hst),
-                                          # min_max_g=(min_green_hst, max_green_hst),
-                                          # min_max_b=(min_blue_hst, max_blue_hst),
-                                          # scaletype_r='abs', scaletype_g='abs', scaletype_b='abs',
-                                                             )
+                                          data_b=cutout_data_blue, **kwargs)
 
         return cutout_rgb_img, ref_wcs
 
@@ -536,12 +534,12 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
         band_list = self.get_covered_hst_broad_band_list(ra=ra, dec=dec)
         # check if H-alpha is available
-
-        if self.check_coords_covered_by_band(obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_ha_cont_sub_target_name), max_dist_dist2hull_arcsec=2):
-            band_list += [hst_ha_band]
-            # check if Ha- continuum subtracted image is available
-            if self.phot_hst_ha_cont_sub_target_name in phangs_info.hst_ha_cont_sub_dict.keys():
-                band_list += [hst_ha_band + '_cont_sub']
+        if helper_func.ObsTools.check_hst_ha_obs(target=self.phot_hst_ha_cont_sub_target_name):
+            if self.check_coords_covered_by_band(obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_ha_cont_sub_target_name), max_dist_dist2hull_arcsec=2):
+                band_list += [hst_ha_band]
+                # check if Ha- continuum subtracted image is available
+                if self.phot_hst_ha_cont_sub_target_name in phangs_info.hst_ha_cont_sub_dict.keys():
+                    band_list += [hst_ha_band + '_cont_sub']
         band_list += nircam_band_list + miri_band_list
 
         # load data
@@ -623,133 +621,134 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
 
         # add h alpha
-        if self.check_coords_covered_by_band(
-                obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_target_name),
-                max_dist_dist2hull_arcsec=2):
-            hst_ha_band = helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_target_name)
-            if plot_rad_profile:
-                ax_rad_profile = plotting_tools.AxisTools.add_panel_axis(
-                            fig=fig,
-                            left_align=fig_dict['rad_pro_left_align'],
-                            bottom_align=fig_dict['rad_pro_bottom_align'],
-                            width=fig_dict['rad_pro_width'],
-                            height=fig_dict['rad_pro_height'],
-                            space_vertical=fig_dict['rad_pro_space_vertical'],
-                            space_horizontal=fig_dict['rad_pro_space_horizontal'],
-                               row_idx=1, col_idx=hst_col_index+1)
-
-                radius, profile, error = phot_tools.ProfileTools.get_rad_profile_from_img(
-                    img=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data,
-                    wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
-                    ra=ra, dec=dec, max_rad_arcsec=0.5, img_err=cutout_dict_stamp['%s_err_cutout' % hst_ha_band].data)
-
-                ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
-                ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
-                ax_rad_profile.set_yticklabels([])
-                ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
-                ax_rad_profile.set_title(hst_ha_band.upper(), fontsize=fig_dict['stamp_title_font_size'],
-                                         color=fig_dict['hst_ha_color'])
-                if hst_col_index == 0:
-                    ax_rad_profile.set_xlabel('rad. [\"]', fontsize=fig_dict['stamp_label_size'])
-
-            ax_stamp = plotting_tools.AxisTools.add_panel_axis(
-                        fig=fig,
-                        left_align=fig_dict['stamp_left_align'],
-                        bottom_align=fig_dict['stamp_bottom_align'],
-                        width=fig_dict['stamp_width'],
-                        height=fig_dict['stamp_height'],
-                        space_vertical=fig_dict['stamp_space_vertical'],
-                        space_horizontal=fig_dict['stamp_space_horizontal'],
-                           row_idx=1, col_idx=hst_col_index+1, projection=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs)
-            norm_hst_stamp = plotting_tools.ColorBarTools.compute_cbar_norm(
-                cutout_list=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data,
-                log_scale=True)
-            ax_stamp.imshow(
-                cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data, norm=norm_hst_stamp,
-                cmap='Greys')
-            plotting_tools.WCSPlottingTools.plot_coord_crosshair(ax=ax_stamp,
-                                                            pos=SkyCoord(ra=ra * u.deg,
-                                                                         dec=dec * u.deg),
-                                                            wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
-                                                            rad=0.3, hair_length=0.3,
-                                                            color='red', line_width=2)
-            plotting_tools.WCSPlottingTools.arr_axis_params(ax=ax_stamp, ra_tick_label=False,
-                                 dec_tick_label=False, ra_axis_label=' ', dec_axis_label=' ',
-                                 fontsize=fig_dict['stamp_label_size'], labelsize=fig_dict['stamp_label_size'])
-            if hst_col_index == 0:
-                plotting_tools.WCSPlottingTools.plot_img_scale_bar(
-                    ax=ax_stamp, img_shape=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data.shape,
-                    wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
-                    bar_length=fig_dict['stamp_scale_bar_length_1'], length_unit='arcsec',
-                    bar_color='tab:red', text_color='tab:red',
-                    line_width=4, fontsize=fig_dict['stamp_label_size'],
-                               va='bottom', ha='left', x_offset=0.05, y_offset=0.05, text_y_offset_diff=0.01)
-
-            # same with continuum subtracted H-alpha
-            hst_ha_cont_sub_band = hst_ha_band + '_cont_sub'
-            if hst_ha_cont_sub_band in band_list:
-                # check if data is not corrupt
-                if (not (np.all(np.isnan(cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data)) |
-                         np.all(cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data == 0))):
-
-
-                    if plot_rad_profile:
-                        ax_rad_profile = plotting_tools.AxisTools.add_panel_axis(
-                                    fig=fig,
-                                    left_align=fig_dict['rad_pro_left_align'],
-                                    bottom_align=fig_dict['rad_pro_bottom_align'],
-                                    width=fig_dict['rad_pro_width'],
-                                    height=fig_dict['rad_pro_height'],
-                                    space_vertical=fig_dict['rad_pro_space_vertical'],
-                                    space_horizontal=fig_dict['rad_pro_space_horizontal'],
-                                       row_idx=1, col_idx=hst_col_index+2)
-
-                        radius, profile, error = phot_tools.ProfileTools.get_rad_profile_from_img(
-                            img=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data,
-                            wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
-                            ra=ra, dec=dec, max_rad_arcsec=0.5, img_err=cutout_dict_stamp['%s_err_cutout' % hst_ha_cont_sub_band].data)
-
-                        ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
-                        ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
-                        ax_rad_profile.set_yticklabels([])
-                        ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
-                        ax_rad_profile.set_title(hst_ha_cont_sub_band.upper(), fontsize=fig_dict['stamp_title_font_size'],
-                                                 color=fig_dict['hst_ha_color'])
-                        if hst_col_index == 0:
-                            ax_rad_profile.set_xlabel('rad. [\"]', fontsize=fig_dict['stamp_label_size'])
-
-                    ax_stamp = plotting_tools.AxisTools.add_panel_axis(
+        if helper_func.ObsTools.check_hst_ha_obs(target=self.phot_hst_target_name):
+            if self.check_coords_covered_by_band(
+                    obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_target_name),
+                    max_dist_dist2hull_arcsec=2):
+                hst_ha_band = helper_func.ObsTools.get_hst_ha_band(target=self.phot_hst_target_name)
+                if plot_rad_profile:
+                    ax_rad_profile = plotting_tools.AxisTools.add_panel_axis(
                                 fig=fig,
-                                left_align=fig_dict['stamp_left_align'],
-                                bottom_align=fig_dict['stamp_bottom_align'],
-                                width=fig_dict['stamp_width'],
-                                height=fig_dict['stamp_height'],
-                                space_vertical=fig_dict['stamp_space_vertical'],
-                                space_horizontal=fig_dict['stamp_space_horizontal'],
-                                   row_idx=1, col_idx=hst_col_index+2, projection=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs)
-                    norm_hst_stamp = plotting_tools.ColorBarTools.compute_cbar_norm(
-                        cutout_list=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data,
-                        log_scale=True)
-                    ax_stamp.imshow(
-                        cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data, norm=norm_hst_stamp,
-                        cmap='Greys')
-                    plotting_tools.WCSPlottingTools.plot_coord_crosshair(ax=ax_stamp,
-                                                                    pos=SkyCoord(ra=ra * u.deg,
-                                                                                 dec=dec * u.deg),
-                                                                    wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
-                                                                    rad=0.3, hair_length=0.3,
-                                                                    color='red', line_width=2)
-                    plotting_tools.WCSPlottingTools.arr_axis_params(ax=ax_stamp, ra_tick_label=False,
-                                         dec_tick_label=False, ra_axis_label=' ', dec_axis_label=' ',
-                                         fontsize=fig_dict['stamp_label_size'], labelsize=fig_dict['stamp_label_size'])
+                                left_align=fig_dict['rad_pro_left_align'],
+                                bottom_align=fig_dict['rad_pro_bottom_align'],
+                                width=fig_dict['rad_pro_width'],
+                                height=fig_dict['rad_pro_height'],
+                                space_vertical=fig_dict['rad_pro_space_vertical'],
+                                space_horizontal=fig_dict['rad_pro_space_horizontal'],
+                                   row_idx=1, col_idx=hst_col_index+1)
+
+                    radius, profile, error = phot_tools.ProfileTools.get_rad_profile_from_img(
+                        img=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data,
+                        wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
+                        ra=ra, dec=dec, max_rad_arcsec=0.5, img_err=cutout_dict_stamp['%s_err_cutout' % hst_ha_band].data)
+
+                    ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
+                    ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
+                    ax_rad_profile.set_yticklabels([])
+                    ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
+                    ax_rad_profile.set_title(hst_ha_band.upper(), fontsize=fig_dict['stamp_title_font_size'],
+                                             color=fig_dict['hst_ha_color'])
                     if hst_col_index == 0:
-                        plotting_tools.WCSPlottingTools.plot_img_scale_bar(
-                            ax=ax_stamp, img_shape=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data.shape,
-                            wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
-                            bar_length=fig_dict['stamp_scale_bar_length_1'], length_unit='arcsec',
-                            bar_color='tab:red', text_color='tab:red',
-                            line_width=4, fontsize=fig_dict['stamp_label_size'],
-                                       va='bottom', ha='left', x_offset=0.05, y_offset=0.05, text_y_offset_diff=0.01)
+                        ax_rad_profile.set_xlabel('rad. [\"]', fontsize=fig_dict['stamp_label_size'])
+
+                ax_stamp = plotting_tools.AxisTools.add_panel_axis(
+                            fig=fig,
+                            left_align=fig_dict['stamp_left_align'],
+                            bottom_align=fig_dict['stamp_bottom_align'],
+                            width=fig_dict['stamp_width'],
+                            height=fig_dict['stamp_height'],
+                            space_vertical=fig_dict['stamp_space_vertical'],
+                            space_horizontal=fig_dict['stamp_space_horizontal'],
+                               row_idx=1, col_idx=hst_col_index+1, projection=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs)
+                norm_hst_stamp = plotting_tools.ColorBarTools.compute_cbar_norm(
+                    cutout_list=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data,
+                    log_scale=True)
+                ax_stamp.imshow(
+                    cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data, norm=norm_hst_stamp,
+                    cmap='Greys')
+                plotting_tools.WCSPlottingTools.plot_coord_crosshair(ax=ax_stamp,
+                                                                pos=SkyCoord(ra=ra * u.deg,
+                                                                             dec=dec * u.deg),
+                                                                wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
+                                                                rad=0.3, hair_length=0.3,
+                                                                color='red', line_width=2)
+                plotting_tools.WCSPlottingTools.arr_axis_params(ax=ax_stamp, ra_tick_label=False,
+                                     dec_tick_label=False, ra_axis_label=' ', dec_axis_label=' ',
+                                     fontsize=fig_dict['stamp_label_size'], labelsize=fig_dict['stamp_label_size'])
+                if hst_col_index == 0:
+                    plotting_tools.WCSPlottingTools.plot_img_scale_bar(
+                        ax=ax_stamp, img_shape=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data.shape,
+                        wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
+                        bar_length=fig_dict['stamp_scale_bar_length_1'], length_unit='arcsec',
+                        bar_color='tab:red', text_color='tab:red',
+                        line_width=4, fontsize=fig_dict['stamp_label_size'],
+                                   va='bottom', ha='left', x_offset=0.05, y_offset=0.05, text_y_offset_diff=0.01)
+
+                # same with continuum subtracted H-alpha
+                hst_ha_cont_sub_band = hst_ha_band + '_cont_sub'
+                if hst_ha_cont_sub_band in band_list:
+                    # check if data is not corrupt
+                    if (not (np.all(np.isnan(cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data)) |
+                             np.all(cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data == 0))):
+
+
+                        if plot_rad_profile:
+                            ax_rad_profile = plotting_tools.AxisTools.add_panel_axis(
+                                        fig=fig,
+                                        left_align=fig_dict['rad_pro_left_align'],
+                                        bottom_align=fig_dict['rad_pro_bottom_align'],
+                                        width=fig_dict['rad_pro_width'],
+                                        height=fig_dict['rad_pro_height'],
+                                        space_vertical=fig_dict['rad_pro_space_vertical'],
+                                        space_horizontal=fig_dict['rad_pro_space_horizontal'],
+                                           row_idx=1, col_idx=hst_col_index+2)
+
+                            radius, profile, error = phot_tools.ProfileTools.get_rad_profile_from_img(
+                                img=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data,
+                                wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
+                                ra=ra, dec=dec, max_rad_arcsec=0.5, img_err=cutout_dict_stamp['%s_err_cutout' % hst_ha_cont_sub_band].data)
+
+                            ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
+                            ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
+                            ax_rad_profile.set_yticklabels([])
+                            ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
+                            ax_rad_profile.set_title(hst_ha_cont_sub_band.upper(), fontsize=fig_dict['stamp_title_font_size'],
+                                                     color=fig_dict['hst_ha_color'])
+                            if hst_col_index == 0:
+                                ax_rad_profile.set_xlabel('rad. [\"]', fontsize=fig_dict['stamp_label_size'])
+
+                        ax_stamp = plotting_tools.AxisTools.add_panel_axis(
+                                    fig=fig,
+                                    left_align=fig_dict['stamp_left_align'],
+                                    bottom_align=fig_dict['stamp_bottom_align'],
+                                    width=fig_dict['stamp_width'],
+                                    height=fig_dict['stamp_height'],
+                                    space_vertical=fig_dict['stamp_space_vertical'],
+                                    space_horizontal=fig_dict['stamp_space_horizontal'],
+                                       row_idx=1, col_idx=hst_col_index+2, projection=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs)
+                        norm_hst_stamp = plotting_tools.ColorBarTools.compute_cbar_norm(
+                            cutout_list=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data,
+                            log_scale=True)
+                        ax_stamp.imshow(
+                            cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data, norm=norm_hst_stamp,
+                            cmap='Greys')
+                        plotting_tools.WCSPlottingTools.plot_coord_crosshair(ax=ax_stamp,
+                                                                        pos=SkyCoord(ra=ra * u.deg,
+                                                                                     dec=dec * u.deg),
+                                                                        wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
+                                                                        rad=0.3, hair_length=0.3,
+                                                                        color='red', line_width=2)
+                        plotting_tools.WCSPlottingTools.arr_axis_params(ax=ax_stamp, ra_tick_label=False,
+                                             dec_tick_label=False, ra_axis_label=' ', dec_axis_label=' ',
+                                             fontsize=fig_dict['stamp_label_size'], labelsize=fig_dict['stamp_label_size'])
+                        if hst_col_index == 0:
+                            plotting_tools.WCSPlottingTools.plot_img_scale_bar(
+                                ax=ax_stamp, img_shape=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].data.shape,
+                                wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_cont_sub_band].wcs,
+                                bar_length=fig_dict['stamp_scale_bar_length_1'], length_unit='arcsec',
+                                bar_color='tab:red', text_color='tab:red',
+                                line_width=4, fontsize=fig_dict['stamp_label_size'],
+                                           va='bottom', ha='left', x_offset=0.05, y_offset=0.05, text_y_offset_diff=0.01)
 
 
         nircam_col_index = 0
@@ -770,20 +769,20 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                     wcs=cutout_dict_stamp['%s_img_cutout' % nircam_stamp_band].wcs,
                     ra=ra, dec=dec, max_rad_arcsec=0.5, img_err=cutout_dict_stamp['%s_err_cutout' % nircam_stamp_band].data)
 
-                nircam = webbpsf.NIRCam()
-                nircam.filter = nircam_stamp_band
-                psf = nircam.calc_psf()
-                psf_radius, psf_profile = webbpsf.radial_profile(psf, maxradius=np.max(radius))
-
-
-                ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
-                if nircam_col_index == 0:
-                    ax_rad_profile.plot(radius, profile, linewidth=4, color='k', label='measured')
-                    ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red', label='PSF')
-                    ax_rad_profile.legend(frameon=False, fontsize=fig_dict['stamp_label_size'])
-                else:
-                    ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
-                    ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red')
+                # nircam = webbpsf.NIRCam()
+                # nircam.filter = nircam_stamp_band
+                # psf = nircam.calc_psf()
+                # psf_radius, psf_profile = webbpsf.radial_profile(psf, maxradius=np.max(radius))
+                #
+                #
+                # ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
+                # if nircam_col_index == 0:
+                #     ax_rad_profile.plot(radius, profile, linewidth=4, color='k', label='measured')
+                #     ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red', label='PSF')
+                #     ax_rad_profile.legend(frameon=False, fontsize=fig_dict['stamp_label_size'])
+                # else:
+                #     ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
+                #     ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red')
 
                 ax_rad_profile.set_yticklabels([])
                 ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
@@ -843,16 +842,16 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                     wcs=cutout_dict_stamp['%s_img_cutout' % miri_stamp_band].wcs,
                     ra=ra, dec=dec, max_rad_arcsec=1.0, img_err=cutout_dict_stamp['%s_err_cutout' % miri_stamp_band].data)
 
-                miri = webbpsf.MIRI()
-                miri.filter = miri_stamp_band
-                psf = miri.calc_psf()
-                psf_radius, psf_profile = webbpsf.radial_profile(psf, maxradius=np.max(radius))
+                # miri = webbpsf.MIRI()
+                # miri.filter = miri_stamp_band
+                # psf = miri.calc_psf()
+                # psf_radius, psf_profile = webbpsf.radial_profile(psf, maxradius=np.max(radius))
 
 
 
                 ax_rad_profile.fill_between(radius, profile-error, profile+error, color='gray', alpha=0.7)
                 ax_rad_profile.plot(radius, profile, linewidth=4, color='k')
-                ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red')
+                # ax_rad_profile.plot(psf_radius, psf_profile / np.max(psf_profile), linewidth=3, linestyle='--', color='red')
                 ax_rad_profile.set_yticklabels([])
                 ax_rad_profile.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['stamp_label_size'])
                 ax_rad_profile.set_title(miri_stamp_band.upper(), fontsize=fig_dict['stamp_title_font_size'],
@@ -1612,12 +1611,13 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
         miri_band_list = self.get_covered_miri_band_list(ra=ra, dec=dec)
 
         band_list = self.get_covered_hst_broad_band_list(ra=ra, dec=dec)
-        if self.check_coords_covered_by_band(obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(
-                target=self.phot_hst_ha_cont_sub_target_name), max_dist_dist2hull_arcsec=2):
-            band_list += [hst_ha_band]
-            # check if Ha- continuum subtracted image is available
-            if self.phot_hst_ha_cont_sub_target_name in phangs_info.hst_ha_cont_sub_dict.keys():
-                band_list += [hst_ha_band + '_cont_sub']
+        if helper_func.ObsTools.check_hst_ha_obs(target=self.phot_hst_ha_cont_sub_target_name):
+            if self.check_coords_covered_by_band(obs="hst", ra=ra, dec=dec, band=helper_func.ObsTools.get_hst_ha_band(
+                    target=self.phot_hst_ha_cont_sub_target_name), max_dist_dist2hull_arcsec=2):
+                band_list += [hst_ha_band]
+                # check if Ha- continuum subtracted image is available
+                if self.phot_hst_ha_cont_sub_target_name in phangs_info.hst_ha_cont_sub_dict.keys():
+                    band_list += [hst_ha_band + '_cont_sub']
         band_list += nircam_band_list + miri_band_list
 
         # load data in case it is not yet loaded
@@ -1627,10 +1627,9 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
         self.change_phangs_band_units(band_list=band_list, new_unit='mJy')
 
 
-
-        # load cutout stamps
-        cutout_dict_stamp = self.get_band_cutout_dict(ra_cutout=ra, dec_cutout=dec, cutout_size=fig_dict['sed_size'],
-                                                      band_list=band_list, include_err=True)
+        # # load cutout stamps
+        # cutout_dict_stamp = self.get_band_cutout_dict(ra_cutout=ra, dec_cutout=dec, cutout_size=fig_dict['sed_size'],
+        #                                               band_list=band_list, include_err=True)
 
         # add sed axis
         ax_sed = fig.add_axes([
@@ -1641,12 +1640,11 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
         ])
 
         for band in hst_broad_band_list:
-            # get aperture corrected photometry
-            flux_dict = phot_tools.PhotTools.compute_ap_corr_phot_jimena(target=self.phot_hst_target_name, ra=ra, dec=dec,
-                                                              data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                              err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                              wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                              obs='hst', band=band)
+            morph_flux_dict = self.compute_morph_phot(
+                ra=ra, dec=dec, band=band,
+                instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=band),
+                cutout_size=fig_dict['sed_size_hst'])
+
             mean_wave = helper_func.ObsTools.get_hst_band_wave(
                 band=band, instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=band))
             min_wave = helper_func.ObsTools.get_hst_band_wave(
@@ -1656,37 +1654,18 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                 band=band, instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=band),
                 wave_estimator='max_wave')
 
-            ax_sed.errorbar(mean_wave, flux_dict['flux'],
+            ax_sed.errorbar(mean_wave, morph_flux_dict['flux'],
                             xerr=[[mean_wave - min_wave], [max_wave - mean_wave]],
-                            yerr=flux_dict['flux_err'],
+                            yerr=morph_flux_dict['flux_err'],
                             fmt='v', color=fig_dict['hst_broad_band_color'], ms=20)
 
-            for rad in fig_dict['hst_broad_band_ap_rad_pix_list']:
-                aperture_rad = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=rad, wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_in = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['hst_broad_band_annulus_rad_in_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_out = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['hst_broad_band_annulus_rad_out_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                flux_dict = phot_tools.PhotTools.compute_phot_jimena(ra=ra, dec=dec,
-                                                                  data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                                  err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                                  wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                                  obs='hst', band=band, target=self.phot_hst_target_name,
-                                                          aperture_rad=aperture_rad,
-                                                          annulus_rad_in=annulus_rad_in,
-                                                          annulus_rad_out=annulus_rad_out)
-                ax_sed.scatter(mean_wave, flux_dict['flux'], color='gray')
 
         if hst_ha_band:
-            # get aperture corrected photometry
-            flux_dict = phot_tools.PhotTools.compute_ap_corr_phot_jimena(target=self.phot_hst_target_name, ra=ra, dec=dec,
-                                                              data=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].data,
-                                                              err=cutout_dict_stamp['%s_err_cutout' % hst_ha_band].data,
-                                                              wcs=cutout_dict_stamp['%s_img_cutout' % hst_ha_band].wcs,
-                                                              obs='hst_ha', band=hst_ha_band)
+            morph_flux_dict = self.compute_morph_phot(
+                ra=ra, dec=dec, band=hst_ha_band,
+                instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=hst_ha_band),
+                cutout_size=fig_dict['sed_size_hst'])
+
             mean_wave = helper_func.ObsTools.get_hst_band_wave(
                 band=hst_ha_band, instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=hst_ha_band))
             min_wave = helper_func.ObsTools.get_hst_band_wave(
@@ -1696,114 +1675,65 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                 band=hst_ha_band, instrument=helper_func.ObsTools.get_hst_instrument(target=self.phot_hst_target_name, band=hst_ha_band),
                 wave_estimator='max_wave')
 
-            ax_sed.errorbar(mean_wave, flux_dict['flux'],
+            ax_sed.errorbar(mean_wave, morph_flux_dict['flux'],
                             xerr=[[mean_wave - min_wave], [max_wave - mean_wave]],
-                            yerr=flux_dict['flux_err'],
+                            yerr=morph_flux_dict['flux_err'],
                             fmt='v', color=fig_dict['hst_ha_color'], ms=20)
 
-            for rad in fig_dict['hst_ha_ap_rad_pix_list']:
-                aperture_rad = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=rad, wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_in = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['hst_ha_annulus_rad_in_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_out = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['hst_ha_annulus_rad_out_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                flux_dict = phot_tools.PhotTools.compute_phot_jimena(ra=ra, dec=dec,
-                                                                  data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                                  err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                                  wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                                  obs='hst', band=band, target=self.phot_hst_target_name,
-                                                          aperture_rad=aperture_rad,
-                                                          annulus_rad_in=annulus_rad_in,
-                                                          annulus_rad_out=annulus_rad_out)
-                ax_sed.scatter(mean_wave, flux_dict['flux'], color='gray')
 
         for band in nircam_band_list:
-            # get aperture corrected photometry
-            flux_dict = phot_tools.PhotTools.compute_ap_corr_phot_jimena(target=self.phot_nircam_target_name, ra=ra, dec=dec,
-                                                              data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                              err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                              wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                              obs='nircam', band=band)
-            mean_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='nircam')
-            min_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='nircam',
-                                                                wave_estimator='min_wave')
-            max_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='nircam',
-                                                                wave_estimator='max_wave')
-            ax_sed.errorbar(mean_wave, flux_dict['flux'],
+            morph_flux_dict = self.compute_morph_phot(
+                ra=ra, dec=dec, band=band,
+                instrument='nircam',
+                cutout_size=fig_dict['sed_size_nircam'])
+
+            mean_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='nircam')
+            min_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='nircam',
+                wave_estimator='min_wave')
+            max_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='nircam',
+                wave_estimator='max_wave')
+
+            ax_sed.errorbar(mean_wave, morph_flux_dict['flux'],
                             xerr=[[mean_wave - min_wave], [max_wave - mean_wave]],
-                            yerr=flux_dict['flux_err'],
+                            yerr=morph_flux_dict['flux_err'],
                             fmt='v', color=fig_dict['nircam_color'], ms=20)
-            for rad in fig_dict['nircam_ap_rad_pix_list']:
-                aperture_rad = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=rad, wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_in = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['nircam_annulus_rad_in_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_out = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['nircam_annulus_rad_out_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                flux_dict = phot_tools.PhotTools.compute_phot_jimena(ra=ra, dec=dec,
-                                                                  data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                                  err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                                  wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                                  obs='nircam', band=band, target=self.phot_nircam_target_name,
-                                                          aperture_rad=aperture_rad,
-                                                          annulus_rad_in=annulus_rad_in,
-                                                          annulus_rad_out=annulus_rad_out)
-                ax_sed.scatter(mean_wave, flux_dict['flux'], color='gray')
+
+
+
 
         for band in miri_band_list:
-            # get aperture corrected photometry
-            # flux_dict = phot_tools.PhotTools.compute_ap_corr_phot_jimena(target=self.target_name, ra=ra, dec=dec,
-            #                                                   data=cutout_dict_stamp['%s_img_cutout' % band].data,
-            #                                                   err=cutout_dict_stamp['%s_err_cutout' % band].data,
-            #                                                   wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-            #                                                   obs='miri', band=band)
+            morph_flux_dict = self.compute_morph_phot(
+                ra=ra, dec=dec, band=band,
+                instrument='miri',
+                cutout_size=fig_dict['sed_size_miri'])
 
-            total_flux, total_flux_err, median_bkg = phot_tools.PhotTools.compute_miri_photometry_aprt_corr(
-                band=band, data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                data_err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs, ra=ra, dec=dec,
-                box_size=(20, 20), filter_size=(3,3),
-                                          do_bkg_sigma_clip=True, bkg_sigma=3.0, bkg_maxiters=10,
-                                          bkg_method='SExtractorBackground')
-            mean_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='miri')
-            min_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='miri',
-                                                                wave_estimator='min_wave')
-            max_wave = helper_func.ObsTools.get_jwst_band_wave(band=band, instrument='miri',
-                                                                wave_estimator='max_wave')
-            ax_sed.errorbar(mean_wave, total_flux,
+            mean_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='miri')
+            min_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='miri',
+                wave_estimator='min_wave')
+            max_wave = helper_func.ObsTools.get_jwst_band_wave(
+                band=band,
+                instrument='miri',
+                wave_estimator='max_wave')
+
+            ax_sed.errorbar(mean_wave, morph_flux_dict['flux'],
                             xerr=[[mean_wave - min_wave], [max_wave - mean_wave]],
-                            yerr=total_flux_err,
+                            yerr=morph_flux_dict['flux_err'],
                             fmt='v', color=fig_dict['miri_color'], ms=20)
-
-            for rad in fig_dict['miri_ap_rad_pix_list']:
-                aperture_rad = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=rad, wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_in = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['miri_annulus_rad_in_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                annulus_rad_out = helper_func.CoordTools.transform_pix2world_scale(
-                    length_in_pix=fig_dict['miri_annulus_rad_out_pix'],
-                    wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs)
-                flux_dict = phot_tools.PhotTools.compute_phot_jimena(ra=ra, dec=dec,
-                                                                  data=cutout_dict_stamp['%s_img_cutout' % band].data,
-                                                                  err=cutout_dict_stamp['%s_err_cutout' % band].data,
-                                                                  wcs=cutout_dict_stamp['%s_img_cutout' % band].wcs,
-                                                                  obs='miri', band=band, target=self.phot_miri_target_name,
-                                                          aperture_rad=aperture_rad,
-                                                          annulus_rad_in=annulus_rad_in,
-                                                          annulus_rad_out=annulus_rad_out)
-                ax_sed.scatter(mean_wave, flux_dict['flux'], color='gray')
-
 
         # add cluster catalog cross-match
         phangs_cluster = ClusterCatAccess()
         cross_match_map = phangs_cluster.get_hst_cc_cross_match_mask(target=self.phot_hst_target_name,
-                                                                     ra=ra, dec=dec,
+                                                                     ra=ra, dec=dec, toleance_arcsec=0.1,
                                                                      classify='human', cluster_class='class12')
         if sum(cross_match_map) > 0:
             sed_age = phangs_cluster.get_hst_cc_age(target=self.phot_hst_target_name)[cross_match_map]
@@ -1966,23 +1896,10 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
         ax_ha_ew.tick_params(axis='both', which='both', width=2, direction='in', labelsize=fig_dict['ha_ew_label_size'])
         ax_ha_ew.legend(frameon=False, fontsize=fig_dict['ha_ew_label_size'])
 
-    def plot_muse_spec(self, fig, fig_dict, ra, dec, ln_list=None, n_nl_gauss=1, n_nl_lorentz=0, n_bl_gauss=0):
+    def plot_muse_spec(self, fig, fig_dict, ra, dec, ppxf_fit_dict):
 
         if not self.check_coords_covered_by_muse(ra=ra, dec=dec, res='copt', max_dist_dist2hull_arcsec=2):
             return None
-
-        # get the circular radius
-        circ_rad = phangs_info.muse_obs_res_dict[self.spec_target_name]['copt_res'] / 4
-
-        spec_dict = self.extract_muse_spec_circ_app(ra=ra, dec=dec, circ_rad=circ_rad, wave_range=None, res='copt')
-        redshift = SpecTools.get_target_ned_redshift(target=helper_func.FileTools.target_name_no_directions(target=self.spec_target_name))
-        # ppxf fit
-        ppxf_dict, em_fit_dict = SpecTools.fit_ppxf2spec(spec_dict=spec_dict, target=self.spec_target_name,
-                                                         sps_name='fsps', age_range=None, metal_range=None,
-                                                         ln_list=ln_list, n_nl_gauss=n_nl_gauss,
-                                                         n_nl_lorentz=n_nl_lorentz, n_bl_gauss=n_bl_gauss)
-
-
 
         # add sed axis
         ax_muse_spec = fig.add_axes([
@@ -1992,28 +1909,23 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
             fig_dict['muse_spec_height'],
         ])
 
-        ax_muse_spec.plot(ppxf_dict['wavelength'], ppxf_dict['total_flux'] * 1e16, linewidth=3, color='k',
+        ax_muse_spec.plot(ppxf_fit_dict['wave'], ppxf_fit_dict['total_flux'] * 1e16, linewidth=3, color='k',
                           label='Obs. Spectrum')
-        ax_muse_spec.plot(ppxf_dict['wavelength'], ppxf_dict['best_fit'] * 1e16, linewidth=3, color='tab:red',
+        ax_muse_spec.plot(ppxf_fit_dict['wave'], ppxf_fit_dict['best_fit'] * 1e16, linewidth=3, color='tab:red',
                           label='Best total fit')
-        ax_muse_spec.plot(ppxf_dict['wavelength'], ppxf_dict['continuum_best_fit'] * 1e16, linewidth=3,
+        ax_muse_spec.plot(ppxf_fit_dict['wave'], ppxf_fit_dict['continuum_best_fit'] * 1e16, linewidth=3,
                           color='tab:orange', label='Stellar Continuum fit')
         # plt.rc('text', usetex=True)
         # muse_title_str = (r'$\underline{\rm PPxF\,fit\,parameters}$'
         muse_title_str = (r'${\rm PPxF\,fit\,parameters}$'
                           + '\n' +
-                          r'age = %.2f Myr ' % (10 ** (ppxf_dict['ages']) * 1e-6)
+                          r'age = %.2f Myr ' % (10 ** (ppxf_fit_dict['ages']) * 1e-6)
                           + '\n' +
-                          r'[M/H] = %.3f' % ppxf_dict['met']
+                          r'[M/H] = %.3f' % ppxf_fit_dict['met']
                           + '\n' +
-                          r'A$_{\rm v} (star) = $%.2f mag' % (ppxf_dict['star_red'])
+                          r'A$_{\rm v} (star) = $%.2f mag' % (ppxf_fit_dict['star_red'])
                           + '\n' +
-                          r'A$_{\rm v} (gas) = $%.2f mag' % (ppxf_dict['gas_red'])
-                          + '\n' +
-                          r'EW(H$\alpha$) = %.1f $\pm$ %.1f ${\rm\AA}$' % (
-                          ppxf_dict['ha_ew'], ppxf_dict['ha_ew_err'])
-                          + '\n' +
-                          r'12+log(O/H) = %.2f' % (ppxf_dict['gas_phase_met']))
+                          r'A$_{\rm v} (gas) = $%.2f mag' % (ppxf_fit_dict['gas_red']))
         t = ax_muse_spec.text(1.02, 0.05, muse_title_str, horizontalalignment='left', verticalalignment='bottom',
                               transform=ax_muse_spec.transAxes, fontsize=fig_dict['muse_spec_title_font_size'])
         t.set_bbox(dict(facecolor='grey', alpha=0.5, edgecolor='black', boxstyle='round,pad=1'))
@@ -2028,26 +1940,26 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
         # get x limits
         if fig_dict['muse_spec_x_lim'][0] == 'min':
-            wave_min = np.nanmin(ppxf_dict['wavelength'])
+            wave_min = np.nanmin(ppxf_fit_dict['wave'])
         else:
             wave_min = fig_dict['muse_spec_x_lim'][0]
 
         if fig_dict['muse_spec_x_lim'][1] == 'max':
-            wave_max = np.nanmax(ppxf_dict['wavelength'])
+            wave_max = np.nanmax(ppxf_fit_dict['wave'])
         else:
             wave_max = fig_dict['muse_spec_x_lim'][1]
 
         # get y-limits
-        mask_displayed_wave = (ppxf_dict['wavelength'] > wave_min) & (ppxf_dict['wavelength'] < wave_max)
+        mask_displayed_wave = (ppxf_fit_dict['wave'] > wave_min) & (ppxf_fit_dict['wave'] < wave_max)
         if isinstance(fig_dict['muse_spec_y_lim'], str):
             if fig_dict['muse_spec_y_lim'] == 'cont':
-                flux_min = np.nanmin(ppxf_dict['continuum_best_fit'][mask_displayed_wave] * 1e16)
-                flux_max = np.nanmax(ppxf_dict['continuum_best_fit'][mask_displayed_wave] * 1e16)
+                flux_min = np.nanmin(ppxf_fit_dict['continuum_best_fit'][mask_displayed_wave] * 1e16)
+                flux_max = np.nanmax(ppxf_fit_dict['continuum_best_fit'][mask_displayed_wave] * 1e16)
                 flux_lim_lo = flux_min - (flux_max - flux_min) * 0.05
                 flux_lim_hi = flux_max + (flux_max - flux_min) * 0.05
             elif fig_dict['muse_spec_y_lim'] == 'total':
-                flux_min = np.nanmin(ppxf_dict['total_flux'][mask_displayed_wave] * 1e16)
-                flux_max = np.nanmax(ppxf_dict['total_flux'][mask_displayed_wave] * 1e16)
+                flux_min = np.nanmin(ppxf_fit_dict['total_flux'][mask_displayed_wave] * 1e16)
+                flux_max = np.nanmax(ppxf_fit_dict['total_flux'][mask_displayed_wave] * 1e16)
                 flux_lim_lo = flux_min - (flux_max - flux_min) * 0.05
                 flux_lim_hi = flux_max + (flux_max - flux_min) * 0.05
             else:
@@ -2085,11 +1997,12 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
         ax_muse_ha_zoom_in.imshow(muse_ha_cutout.data, norm=norm_muse_ha, cmap='cividis')
         ax_muse_ha_zoom_in.set_title(r'MUSE H$\alpha$', fontsize=fig_dict['muse_spec_title_font_size'], color='k')
         plotting_tools.WCSPlottingTools.plot_coord_circle(ax=ax_muse_ha_zoom_in,
-                                                          pos=SkyCoord(ra=ra * u.deg, dec=dec * u.deg), rad=circ_rad,
+                                                          pos=SkyCoord(ra=ra * u.deg, dec=dec * u.deg),
+                                                          rad=ppxf_fit_dict['rad_arcsec'],
                                                           color='cyan', line_width=4)
         plotting_tools.WCSPlottingTools.plot_coord_circle(ax=ax_muse_ha_zoom_in,
                                                           pos=SkyCoord(ra=ra * u.deg, dec=dec * u.deg),
-                                                          rad=circ_rad * 2,
+                                                          rad=ppxf_fit_dict['rad_arcsec'],
                                                           color='k', line_width=4, line_style='--')
         ax_muse_ha_zoom_in.plot([], [], color='cyan', linewidth=4, label='Spec. apert.')
         ax_muse_ha_zoom_in.plot([], [], color='k', linewidth=4, linestyle='--', label='PSF FWHM')
@@ -2115,120 +2028,134 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                                                         ra_axis_label=' ', dec_axis_label=' ',
                                                         fontsize=fig_dict['muse_spec_label_size'],
                                                         labelsize=fig_dict['muse_spec_label_size'])
-        return spec_dict, ppxf_dict, em_fit_dict
+        return None
 
-    def plot_spec_features(self, fig, fig_dict, ppxf_fit_dict, em_fit_dict):
+    def plot_spec_features(self, fig, fig_dict, em_line_fit_dict):
         # add sed axis
-        ax_hb_oiii_spec = fig.add_axes([
-            fig_dict['hb_oiii_left_align'],
-            fig_dict['hb_oiii_bottom_align'],
-            fig_dict['hb_oiii_width'],
-            fig_dict['hb_oiii_height'],
-        ])
-        ax_hb_oiii_res_spec = fig.add_axes([
-            fig_dict['hb_oiii_res_left_align'],
-            fig_dict['hb_oiii_res_bottom_align'],
-            fig_dict['hb_oiii_res_width'],
-            fig_dict['hb_oiii_res_height'],
-        ])
-        ax_ha_nii_spec = fig.add_axes([
-            fig_dict['ha_nii_left_align'],
-            fig_dict['ha_nii_bottom_align'],
-            fig_dict['ha_nii_width'],
-            fig_dict['ha_nii_height'],
-        ])
-        ax_ha_nii_res_spec = fig.add_axes([
-            fig_dict['ha_nii_res_left_align'],
-            fig_dict['ha_nii_res_bottom_align'],
-            fig_dict['ha_nii_res_width'],
-            fig_dict['ha_nii_res_height'],
-        ])
 
-        ax_red_bump = fig.add_axes([
-            fig_dict['red_bump_left_align'],
-            fig_dict['red_bump_bottom_align'],
-            fig_dict['red_bump_width'],
-            fig_dict['red_bump_height'],
-        ])
-        ax_oi6302_spec = fig.add_axes([
-            fig_dict['oi6302_left_align'],
-            fig_dict['oi6302_bottom_align'],
-            fig_dict['oi6302_width'],
-            fig_dict['oi6302_height'],
-        ])
-        ax_oi6302_res_spec = fig.add_axes([
-            fig_dict['oi6302_res_left_align'],
-            fig_dict['oi6302_res_bottom_align'],
-            fig_dict['oi6302_res_width'],
-            fig_dict['oi6302_res_height'],
-        ])
-        ax_sii_spec = fig.add_axes([
-            fig_dict['sii_left_align'],
-            fig_dict['sii_bottom_align'],
-            fig_dict['sii_width'],
-            fig_dict['sii_height'],
-        ])
-        ax_sii_res_spec = fig.add_axes([
-            fig_dict['sii_res_left_align'],
-            fig_dict['sii_res_bottom_align'],
-            fig_dict['sii_res_width'],
-            fig_dict['sii_res_height'],
-        ])
-        ax_hei6680_spec = fig.add_axes([
-            fig_dict['hei6680_left_align'],
-            fig_dict['hei6680_bottom_align'],
-            fig_dict['hei6680_width'],
-            fig_dict['hei6680_height'],
-        ])
 
-        plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_hb_oiii_spec, em_fit_dict=em_fit_dict,
-                                                       line_list=[4863, 4960, 5008],
-                                                       left_offset=fig_dict['hb_oiii_left_lim_offst'],
-                                                       right_offset=fig_dict['hb_oiii_right_lim_offst'],
-                                                       display_legend=True,
-                                                       display_x_label=False,
-                                                       ax_res=ax_hb_oiii_res_spec,
-                                                       font_size_label=fig_dict['em_label_size'],
-                                                       font_size_title=fig_dict['em_title_font_size'])
 
-        plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_ha_nii_spec, em_fit_dict=em_fit_dict,
-                                                       line_list=[6550, 6565, 6585],
-                                                       left_offset=fig_dict['ha_nii_left_lim_offst'],
-                                                       right_offset=fig_dict['ha_nii_right_lim_offst'],
-                                                       display_legend=False,
-                                                       display_x_label=True,
-                                                       ax_res=ax_ha_nii_res_spec,
-                                                       font_size_label=fig_dict['em_label_size'],
-                                                       font_size_title=fig_dict['em_title_font_size'])
-        plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_oi6302_spec, em_fit_dict=em_fit_dict,
-                                                       line_list=[6302],
-                                                       left_offset=fig_dict['oi6302_left_lim_offst'],
-                                                       right_offset=fig_dict['oi6302_right_lim_offst'],
-                                                       display_legend=False,
-                                                       display_x_label=False,
-                                                       display_y_label=False,
-                                                       ax_res=ax_oi6302_res_spec,
-                                                       font_size_label=fig_dict['em_label_size'],
-                                                       font_size_title=fig_dict['em_title_font_size'])
-        plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_sii_spec, em_fit_dict=em_fit_dict,
-                                                       line_list=[6718, 6733],
-                                                       left_offset=fig_dict['sii_left_lim_offst'],
-                                                       right_offset=fig_dict['sii_right_lim_offst'],
-                                                       display_legend=False,
-                                                       display_x_label=True,
-                                                       display_y_label=False,
-                                                       ax_res=ax_sii_res_spec,
-                                                       font_size_label=fig_dict['em_label_size'],
-                                                       font_size_title=fig_dict['em_title_font_size'])
 
-        plotting_tools.SpecPlotTools.plot_red_bump(ax=ax_red_bump, ppxf_fit_dict=ppxf_fit_dict,
-                                                   font_size_label=fig_dict['em_label_size'],
-                                                   font_size_title=fig_dict['em_title_font_size'])
+        if ((4863 in em_line_fit_dict['ln_list']) & (4960 in em_line_fit_dict['ln_list']) &
+                (5008 in em_line_fit_dict['ln_list'])):
+            ax_hb_oiii_spec = fig.add_axes([
+                fig_dict['hb_oiii_left_align'],
+                fig_dict['hb_oiii_bottom_align'],
+                fig_dict['hb_oiii_width'],
+                fig_dict['hb_oiii_height'],
+            ])
+            ax_hb_oiii_res_spec = fig.add_axes([
+                fig_dict['hb_oiii_res_left_align'],
+                fig_dict['hb_oiii_res_bottom_align'],
+                fig_dict['hb_oiii_res_width'],
+                fig_dict['hb_oiii_res_height'],
+            ])
 
-        plotting_tools.SpecPlotTools.plot_stellar_hei6680(ax=ax_hei6680_spec, ppxf_fit_dict=ppxf_fit_dict,
-                                                          y_axis_scale=1e16, font_size_label=fig_dict['em_label_size'],
-                                                          display_label=True, font_size_title=fig_dict['em_title_font_size'],
-                                                          display_y_label=False, display_x_label=True)
+            plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_hb_oiii_spec, em_line_fit_dict=em_line_fit_dict,
+                                                           line_list=[4863, 4960, 5008],
+                                                           left_offset=fig_dict['hb_oiii_left_lim_offst'],
+                                                           right_offset=fig_dict['hb_oiii_right_lim_offst'],
+                                                           display_legend=True,
+                                                           display_x_label=False,
+                                                           ax_res=ax_hb_oiii_res_spec,
+                                                           font_size_label=fig_dict['em_label_size'],
+                                                           font_size_title=fig_dict['em_title_font_size'])
+
+        if ((6550 in em_line_fit_dict['ln_list']) & (6565 in em_line_fit_dict['ln_list']) &
+                (6585 in em_line_fit_dict['ln_list'])):
+            ax_ha_nii_spec = fig.add_axes([
+                fig_dict['ha_nii_left_align'],
+                fig_dict['ha_nii_bottom_align'],
+                fig_dict['ha_nii_width'],
+                fig_dict['ha_nii_height'],
+            ])
+            ax_ha_nii_res_spec = fig.add_axes([
+                fig_dict['ha_nii_res_left_align'],
+                fig_dict['ha_nii_res_bottom_align'],
+                fig_dict['ha_nii_res_width'],
+                fig_dict['ha_nii_res_height'],
+            ])
+            plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_ha_nii_spec, em_line_fit_dict=em_line_fit_dict,
+                                                           line_list=[6550, 6565, 6585],
+                                                           left_offset=fig_dict['ha_nii_left_lim_offst'],
+                                                           right_offset=fig_dict['ha_nii_right_lim_offst'],
+                                                           display_legend=False,
+                                                           display_x_label=True,
+                                                           ax_res=ax_ha_nii_res_spec,
+                                                           font_size_label=fig_dict['em_label_size'],
+                                                           font_size_title=fig_dict['em_title_font_size'])
+
+        if 6302 in em_line_fit_dict['ln_list']:
+            ax_oi6302_spec = fig.add_axes([
+                fig_dict['oi6302_left_align'],
+                fig_dict['oi6302_bottom_align'],
+                fig_dict['oi6302_width'],
+                fig_dict['oi6302_height'],
+            ])
+            ax_oi6302_res_spec = fig.add_axes([
+                fig_dict['oi6302_res_left_align'],
+                fig_dict['oi6302_res_bottom_align'],
+                fig_dict['oi6302_res_width'],
+                fig_dict['oi6302_res_height'],
+            ])
+            plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_oi6302_spec, em_line_fit_dict=em_line_fit_dict,
+                                                           line_list=[6302],
+                                                           left_offset=fig_dict['oi6302_left_lim_offst'],
+                                                           right_offset=fig_dict['oi6302_right_lim_offst'],
+                                                           display_legend=False,
+                                                           display_x_label=False,
+                                                           display_y_label=False,
+                                                           ax_res=ax_oi6302_res_spec,
+                                                           font_size_label=fig_dict['em_label_size'],
+                                                           font_size_title=fig_dict['em_title_font_size'])
+
+        if (6718 in em_line_fit_dict['ln_list']) & (6733 in em_line_fit_dict['ln_list']):
+            ax_sii_spec = fig.add_axes([
+                fig_dict['sii_left_align'],
+                fig_dict['sii_bottom_align'],
+                fig_dict['sii_width'],
+                fig_dict['sii_height'],
+            ])
+            ax_sii_res_spec = fig.add_axes([
+                fig_dict['sii_res_left_align'],
+                fig_dict['sii_res_bottom_align'],
+                fig_dict['sii_res_width'],
+                fig_dict['sii_res_height'],
+            ])
+            plotting_tools.SpecPlotTools.plot_em_line_spec(ax=ax_sii_spec, em_line_fit_dict=em_line_fit_dict,
+                                                           line_list=[6718, 6733],
+                                                           left_offset=fig_dict['sii_left_lim_offst'],
+                                                           right_offset=fig_dict['sii_right_lim_offst'],
+                                                           display_legend=False,
+                                                           display_x_label=True,
+                                                           display_y_label=False,
+                                                           ax_res=ax_sii_res_spec,
+                                                           font_size_label=fig_dict['em_label_size'],
+                                                           font_size_title=fig_dict['em_title_font_size'])
+
+
+
+        # ax_red_bump = fig.add_axes([
+        #     fig_dict['red_bump_left_align'],
+        #     fig_dict['red_bump_bottom_align'],
+        #     fig_dict['red_bump_width'],
+        #     fig_dict['red_bump_height'],
+        # ])
+        #
+        # ax_hei6680_spec = fig.add_axes([
+        #     fig_dict['hei6680_left_align'],
+        #     fig_dict['hei6680_bottom_align'],
+        #     fig_dict['hei6680_width'],
+        #     fig_dict['hei6680_height'],
+        # ])
+        # plotting_tools.SpecPlotTools.plot_red_bump(ax=ax_red_bump, ppxf_fit_dict=ppxf_fit_dict,
+        #                                            font_size_label=fig_dict['em_label_size'],
+        #                                            font_size_title=fig_dict['em_title_font_size'])
+        #
+        # plotting_tools.SpecPlotTools.plot_stellar_hei6680(ax=ax_hei6680_spec, ppxf_fit_dict=ppxf_fit_dict,
+        #                                                   y_axis_scale=1e16, font_size_label=fig_dict['em_label_size'],
+        #                                                   display_label=True, font_size_title=fig_dict['em_title_font_size'],
+        #                                                   display_y_label=False, display_x_label=True)
 
     def plot_ism_cutout_and_bkg(self, fig, fig_dict, ra, dec):
 
