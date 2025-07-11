@@ -7,12 +7,15 @@ from pathlib import Path
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.stats import SigmaClip
-from astropy.visualization.wcsaxes import SphericalCircle
+from astropy.visualization.wcsaxes import SphericalCircle, Quadrangle
 
 from matplotlib.colors import Normalize, LogNorm
 from matplotlib.colorbar import ColorbarBase
 from matplotlib import patheffects
 import matplotlib.pyplot as plt
+
+from matplotlib import text as mtext
+import math
 
 
 import decimal
@@ -28,14 +31,12 @@ from astropy.convolution import convolve
 from regions import PixCoord, RectanglePixelRegion
 
 import numpy as np
-from setuptools.command.rotate import rotate
 
 import phangs_visualizer.multicolorfits as mcf
 
 from phangs_data_access import helper_func, phys_params, sample_access
 import dust_tools
 from phangs_data_access.helper_func import ObsTools
-from phangs_data_access import spec_tools
 from phangs_data_access.spec_tools import SpecTools
 
 
@@ -191,6 +192,42 @@ class WCSPlottingTools:
             circle = SphericalCircle(pos, rad * u.arcsec, edgecolor=color, facecolor=face_color, linewidth=line_width,
                                      linestyle=line_style, alpha=alpha, transform=ax.get_transform('fk5'))
             ax.add_patch(circle)
+
+
+    @staticmethod
+    def plot_coord_box(ax, pos, width, height, color, line_style='-', line_width=3, alpha=1., fill=False):
+        """
+        function to draw circles around a coordinate on an axis with a WCS projection
+
+        Parameters
+        ----------
+        ax : ``astropy.visualization.wcsaxes.core.WCSAxes``
+        pos : ``astropy.coordinates.SkyCoord``
+        width : float
+        height : float
+        color : str
+        line_style: str
+        line_width: float
+        alpha: float
+        fill: bool
+
+
+
+        Returns
+        -------
+        None
+        """
+
+        if fill:
+            face_color = color
+        else:
+            face_color = 'none'
+
+        quad = Quadrangle(anchor=(pos.ra.degree - width/(2*3600), pos.dec.degree - height/(2*3600)) * u.deg, width=width*u.arcsec, height=height*u.arcsec,
+                          edgecolor=color, facecolor='none', transform=ax.get_transform('fk5'),
+                          linestyle=line_style, linewidth=line_width, alpha=alpha)
+
+        ax.add_patch(quad)
 
     @staticmethod
     def plot_coord_crosshair(ax, pos, wcs, rad, hair_length, color, line_style='-', line_width=3, alpha=1.):
@@ -805,17 +842,24 @@ class CCDTools:
     def plot_reddening_vect_wave_av(ax, x_wave_1, x_wave_2, y_wave_1, y_wave_2,
                                  x_color_int=0, y_color_int=0, av_val=1,
                         linewidth=2, line_color='k',
-                        text=True, fontsize=20, text_color='k', x_text_offset=0.01, y_text_offset=-0.01):
+                        text=True, fontsize=20, text_color='k', x_text_offset=0.01, y_text_offset=-0.01, reddening_law='ccm89', flip_text=False):
 
-        color_ext_x = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=x_wave_1, wave2=x_wave_2, av=av_val)
-        color_ext_y = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=y_wave_1, wave2=y_wave_2, av=av_val)
-        print(color_ext_x)
-        print(color_ext_y)
+        # color_ext_x = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=x_wave_1, wave2=x_wave_2,
+        #                                                                              av=av_val)
+        # color_ext_y = dust_tools.extinction_tools.ExtinctionTools.color_ext_ccm89_av(wave1=y_wave_1, wave2=y_wave_2,
+        #                                                                              av=av_val)
+        #
+
+        color_ext_x = getattr(dust_tools.extinction_tools.ExtinctionTools, 'color_ext_%s_av' % reddening_law)(wave1=x_wave_1, wave2=x_wave_2,
+                                                                                     av=av_val)
+        color_ext_y = getattr(dust_tools.extinction_tools.ExtinctionTools, 'color_ext_%s_av' % reddening_law)(wave1=y_wave_1, wave2=y_wave_2,
+                                                                                     av=av_val)
 
         # slope_av_vector = ((y_color_int + color_ext_y) - y_color_int) / ((x_color_int + color_ext_x) - x_color_int)
 
         angle_av_vector = np.arctan(color_ext_y/color_ext_x) * 180/np.pi
-
+        if flip_text:
+            angle_av_vector += 180
         ax.annotate('', xy=(x_color_int + color_ext_x, y_color_int + color_ext_y), xycoords='data',
                     xytext=(x_color_int, y_color_int), fontsize=fontsize,
                     textcoords='data', arrowprops=dict(arrowstyle='-|>', color=line_color, lw=linewidth, ls='-'))
@@ -883,6 +927,43 @@ class CCDTools:
             #         rotation=angle_av_vector, fontsize=fontsize, color=text_color)
 
 
+class ArrowTools:
+    """ Class to plot arrow"""
+
+    @staticmethod
+    def plot_arrow_with_text(ax, x1 , x2, y1, y2, text_str,
+                             awwor_line_width=2, awwor_line_color='k', arrow_line_style='-',
+                             arrow_type='-|>', arrow_head_width=1, arrow_head_length=2,
+                             text_fontsize=20, text_color='k',
+                             text_ha='center',
+                             text_va='bottom',
+                             x_text_offset=0.01, y_text_offset=-0.01, x_scale_log=False, y_scale_log=False,
+                             path_eff=False, path_err_linewidth=3, path_eff_color='white',):
+
+        ext_x = x2 - x1
+        ext_y = y2 - y1
+
+        if ext_x == 0:
+            angle_av_vector = 90
+        else:
+            angle_av_vector = np.arctan(ext_y/ext_x) * 180/np.pi
+
+        arrowstyle = arrow_type + ',head_width=%f,head_length=%f' % (arrow_head_width, arrow_head_length)
+
+        ax.annotate('', xy=(x1 + ext_x, y1 + ext_y), xycoords='data', xytext=(x1, y1), textcoords='data',
+                    arrowprops=dict(arrowstyle=arrowstyle, color=awwor_line_color, lw=awwor_line_width,
+                                    ls=arrow_line_style,))
+
+        StrTools.display_text_on_data_point(
+            ax=ax, text=text_str, x_data_point=x1 + ext_x/2, y_data_point= y1 + ext_y/2,
+            x_axis_frac_offset=x_text_offset, y_axis_frac_offset=y_text_offset, x_scale_log=x_scale_log, y_scale_log=y_scale_log,
+            fontsize=text_fontsize, text_color=text_color, horizontal_alignment=text_ha, vertical_alignment=text_va,
+            path_eff=path_eff, path_err_linewidth=path_err_linewidth, path_eff_color=path_eff_color,
+            rotation=angle_av_vector)
+
+
+
+
 class StrTools:
     """
     basic class to gather handling of strings and other things for displaying text
@@ -939,9 +1020,9 @@ class StrTools:
             return 'NaN'
         if mstar == -999:
             return '-999'
-        print(mstar)
+        # print(mstar)
         order_of_mag = int(np.log10(mstar))
-        print(order_of_mag)
+        # print(order_of_mag)
         return r'%.1f 10$^{%i}$ M$_{\odot}$' % ((mstar / 10**(order_of_mag)), order_of_mag)
 
 
@@ -1589,9 +1670,6 @@ class SpecPlotTools:
             ax.set_ylabel(r'$\phi$ [10$^{-%i}$ erg cm$^{-2}$ s$^{-1}$ ${\rm \AA^{-1}}$]' % int(np.log10(y_axis_scale)),
                           fontsize=font_size_label)
 
-from matplotlib import patches
-from matplotlib import text as mtext
-import math
 
 class CurvedText(mtext.Text):
     """
