@@ -473,6 +473,24 @@ class AxisTools:
                              width, height],
                             projection=projection)
 
+    @staticmethod
+    def frame2axis(ax, color, line_width):
+        ax.spines['top'].set_visible(True)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        ax.spines['right'].set_visible(True)
+
+        ax.spines["top"].set_color(color)
+        ax.spines["bottom"].set_color(color)
+        ax.spines["left"].set_color(color)
+        ax.spines["right"].set_color(color)
+
+        ax.spines["top"].set_linewidth(line_width)
+        ax.spines["bottom"].set_linewidth(line_width)
+        ax.spines["left"].set_linewidth(line_width)
+        ax.spines["right"].set_linewidth(line_width)
+
+
 
 class ImgTools:
     """

@@ -199,6 +199,55 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
         return hst_rgb, new_wcs
 
+    def get_target_non_quadratic_rgb_img(self, ra_min, ra_max,  dec_max, dec_min,
+                                         red_band, green_band, blue_band,
+                                         red_obs='hst', green_obs='hst', blue_obs='hst',
+                                         overview_img_size=(500, 500), **rgb_img_kwargs):
+        """
+        Function to create an overview RGB image of PHANGS HST observations
+
+        Parameters
+        ----------
+        red_band, green_band, blue_band : str
+            Can be specified to any hst band
+        overview_img_size : tuple
+            denotes the shape of the new image
+
+        Returns
+        -------
+        rgb_image: ``numpy.ndarray``
+        wcs: ``astropy.wcs.WCS``
+        """
+
+
+        # band list need to be loaded
+        self.load_phangs_bands(band_list=[red_band, green_band, blue_band], flux_unit='MJy/sr', load_err=False)
+        # get overview image
+
+
+
+        new_wcs = helper_func.CoordTools.construct_wcs(ra_min=ra_min, ra_max=ra_max, dec_min=dec_max, dec_max=dec_min,
+                                                       img_shape=overview_img_size, quadratic_image=False)
+
+        img_data_red = helper_func.CoordTools.reproject_image(data=getattr(self, '%s_bands_data' % red_obs)['%s_data_img' % red_band],
+                                                              wcs=getattr(self, '%s_bands_data' % red_obs)['%s_wcs_img' % red_band],
+                                                              new_wcs=new_wcs, new_shape=overview_img_size)
+        img_data_green = helper_func.CoordTools.reproject_image(data=getattr(self, '%s_bands_data' % green_obs)['%s_data_img' % green_band],
+                                                                wcs=getattr(self, '%s_bands_data' % green_obs)['%s_wcs_img' % green_band],
+                                                                new_wcs=new_wcs, new_shape=overview_img_size)
+        img_data_blue = helper_func.CoordTools.reproject_image(data=getattr(self, '%s_bands_data' % blue_obs)['%s_data_img' % blue_band],
+                                                               wcs=getattr(self, '%s_bands_data' % blue_obs)['%s_wcs_img' % blue_band],
+                                                               new_wcs=new_wcs, new_shape=overview_img_size)
+
+        img_data_red[img_data_red == 0] = np.nan
+        img_data_green[img_data_green == 0] = np.nan
+        img_data_blue[img_data_blue == 0] = np.nan
+
+        hst_rgb = plotting_tools.ImgTools.get_rgb_img(data_r=img_data_red, data_g=img_data_green, data_b=img_data_blue,
+                                                      **rgb_img_kwargs)
+
+        return hst_rgb, new_wcs
+
     def plot_zoom_in_panel_group(self, fig, fig_dict, ra, dec, obs_list=None, nrows=2, ncols=3):
 
         if obs_list is None:
@@ -3173,6 +3222,7 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
 
     def compute_complete_photometry(self, ra_list, dec_list, roi_arcsec, bkg_roi_rad_in_arcsec, bkg_roi_rad_out_arcsec,
                                     idx_list=None,
+                                    detect_sub_src=True,
                                     max_n_sub_src=10,
                                     psf_substructure_ratio_lim=2,
                                     substructure_roi_frac=0.9,
@@ -3433,19 +3483,20 @@ class PhotVisualizer(PhotAccess, GasAccess, SpecAccess):
                                     yerr=forced_photomerty_dict['src_flux_err'],
                                     fmt='.', color='k', ms=30)
 
-                if search_substructure_flag_list[band_idx]:
+                if search_substructure_flag_list[band_idx] & detect_sub_src:
                     # get cutout
                     # scale_map_cutout = helper_func.CoordTools.get_img_cutout(
                     #     img=scale_data, wcs=scale_wcs, coord=SkyCoord(ra=ra*u.deg, dec=dec*u.deg),
                     #     cutout_size=img_cutout_size)
-                    mean_sigclip, median_sigclip, std_sigclip = sigma_clipped_stats(obs_cutout_dict['%s_img_cutout' % band].data)
+                    # mean_sigclip, median_sigclip, std_sigclip = sigma_clipped_stats(obs_cutout_dict['%s_img_cutout' % band].data)
                     # source detection
                     sub_src_detect = phot_tools.SrcTools.detect_star_like_src(
                         data=obs_cutout_dict['%s_img_cutout' % band].data, detection_threshold=forced_photomerty_dict['bkg_median'],
                         src_fwhm_pix=fwhm_pix_list[band_idx], min_separation=fwhm_pix_list[band_idx], roundhi=1, roundlo=-1, sharphi=1.0, sharplo=0.2)
                     if sub_src_detect is None: continue
 
-                    central_coordx, central_coordy = obs_cutout_dict['%s_img_cutout' % band].data.shape[0] / 2, obs_cutout_dict['%s_img_cutout' % band].data.shape[1] / 2
+                    # central_coordx, central_coordy = obs_cutout_dict['%s_img_cutout' % band].data.shape[0] / 2, obs_cutout_dict['%s_img_cutout' % band].data.shape[1] / 2
+                    central_coordx, central_coordy = obs_cutout_dict['%s_img_cutout' % band].wcs.world_to_pixel(SkyCoord(ra=ra*u.deg, dec=dec*u.deg))
                     # sort sources by distance
                     dist2center = np.sqrt((sub_src_detect['xcentroid'] - central_coordx) ** 2 + (sub_src_detect['ycentroid'] - central_coordy) ** 2)
                     sort = np.argsort(dist2center)
