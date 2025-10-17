@@ -93,11 +93,13 @@ class MultiPanelVisualizer:
 
         # plot postage stamps
         phot_visual_access.plot_img_stamps_all(fig=fig, fig_dict=plot_params.holistic_viewer2_param_dic, ra=ra, dec=dec,
-                                           plot_rad_profile=plot_rad_profile)
+                                           plot_rad_profile=plot_rad_profile,
+                                               individual_band_list=plot_params.holistic_viewer2_param_dic['individual_band_list'])
 
         # plot sed estimation
         if plot_sed:
-            phot_visual_access.plot_sed_panel(fig=fig, fig_dict=plot_params.holistic_viewer2_param_dic, ra=ra, dec=dec)
+            phot_visual_access.plot_sed_panel(fig=fig, fig_dict=plot_params.holistic_viewer2_param_dic, ra=ra, dec=dec,
+                                              individual_band_list=plot_params.holistic_viewer2_param_dic['individual_band_list'])
 
         return fig
 

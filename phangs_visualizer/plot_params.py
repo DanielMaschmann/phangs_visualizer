@@ -143,7 +143,7 @@ holistic_viewer1_param_dic = {
     'astrosat_cbar_width': 0.02,
     'astrosat_cbar_height': 0.10,
     'astrosat_norm': 'log',
-    'astrosat_cmap': 'Grays',
+    'astrosat_cmap': 'Greys',
 
     # alma
     'alma_res': 150,
@@ -312,19 +312,27 @@ holistic_viewer2_param_dic = {
     'hst_ha_green_band': 'B',
     'hst_ha_blue_band': 'U',
     # Nircam
-    'nircam_red_band':  'F182M',
+    'nircam_red_band':  'F200W',
     'nircam_green_band': 'F164N',
     'nircam_blue_band': 'F150W',
     # Nircam2
     'nircam2_red_band': 'F200W',
     'nircam2_green_band': 'F187N',
-    'nircam2_blue_band': 'F182M',
+    'nircam2_blue_band': 'F150W',
     # Nircam3
     'nircam3_red_band': 'F360M',
     'nircam3_green_band': 'F335M',
     'nircam3_blue_band': 'F300M',
 
-# 'F150W', 'F164N', 'F182M'
+
+    'individual_band_list': [
+        # 'F275W', 'F336W', 'F555W', 'F814W',
+                             'F658N',
+                       'F150W', 'F164N', 'F187N', 'F200W',
+                       #'F300M', 'F335M', 'F360M',
+                        'F770W', 'F1000W', 'F1130W', 'F1500W', 'F1800W', 'F2100W'
+                       ],
+
 
     # miri
     'miri_red_band': 'F1130W',
@@ -337,7 +345,7 @@ holistic_viewer2_param_dic = {
     'astrosat_cbar_width': 0.02,
     'astrosat_cbar_height': 0.10,
     'astrosat_norm': 'log',
-    'astrosat_cmap': 'Grays',
+    'astrosat_cmap': 'Greys',
 
     # alma
     'alma_res': 150,
@@ -522,7 +530,7 @@ phot_viewer_param_dic = {
     'astrosat_cbar_width': 0.02,
     'astrosat_cbar_height': 0.10,
     'astrosat_norm': 'log',
-    'astrosat_cmap': 'Grays',
+    'astrosat_cmap': 'Greys',
 
     # alma
     'alma_res': 150,

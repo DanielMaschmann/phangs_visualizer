@@ -85,6 +85,7 @@ color_list_tab10 = plt.get_cmap('tab10')(range(10))
 color_list_pastel2 = plt.get_cmap('Pastel2')(range(8))
 
 color_list_rainbow = plt.get_cmap('rainbow')
+color_list_hsv = plt.get_cmap('hsv')
 
 
 
@@ -223,8 +224,9 @@ class WCSPlottingTools:
         else:
             face_color = 'none'
 
-        quad = Quadrangle(anchor=(pos.ra.degree - width/(2*3600), pos.dec.degree - height/(2*3600)) * u.deg, width=width*u.arcsec, height=height*u.arcsec,
-                          edgecolor=color, facecolor='none', transform=ax.get_transform('fk5'),
+        quad = Quadrangle(anchor=(pos.ra.degree - width/np.cos(pos.dec.degree * np.pi/180)/(2*3600), pos.dec.degree - height/(2*3600)) * u.deg,
+                          width=width*u.arcsec / np.cos(pos.dec.degree * np.pi/180), height=height*u.arcsec,
+                          edgecolor=color, facecolor='none', transform=ax.get_transform('world'),
                           linestyle=line_style, linewidth=line_width, alpha=alpha)
 
         ax.add_patch(quad)
@@ -364,18 +366,18 @@ class WCSPlottingTools:
         assert ha in ['left', 'right']
 
         if ha == 'left':
-            pos_left = x_offset * img_shape[0]
+            pos_left = x_offset * img_shape[1]
         else:
-            pos_left = img_shape[0] - (x_offset * img_shape[0] + bar_length_in_pixel)
+            pos_left = img_shape[1] - (x_offset * img_shape[1] + bar_length_in_pixel)
         # text position is just relative to left bar position
         text_pos_x = pos_left + bar_length_in_pixel/2
 
         if va == 'bottom':
-            pos_bottom = y_offset * img_shape[1]
+            pos_bottom = y_offset * img_shape[0]
         else:
-            pos_bottom = img_shape[1] - (y_offset * img_shape[1])
+            pos_bottom = img_shape[0] - (y_offset * img_shape[0])
 
-        text_pos_y = pos_bottom + text_y_offset_diff * img_shape[1]
+        text_pos_y = pos_bottom + text_y_offset_diff * img_shape[0]
 
         ax.plot([pos_left, pos_left+bar_length_in_pixel], [pos_bottom, pos_bottom], linewidth=line_width,
                 color=bar_color)
@@ -1031,6 +1033,14 @@ class StrTools:
         else:
             if age % 1000 == 0: return '%i Gyr' % (age / 1000)
             else: return '%.1f Gyr' % (age / 1000)
+
+    @staticmethod
+    def mstar2ord_mag(mstar, ord_mag):
+        if np.isnan(mstar):
+            return 'NaN'
+        if mstar == -999:
+            return '-999'
+        return r'%.1f' % ((mstar / 10**(ord_mag)))
 
     @staticmethod
     def mstar2label(mstar):
